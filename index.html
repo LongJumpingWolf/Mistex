@@ -1617,17 +1617,6 @@ select.toolbar-select:focus { border-color: var(--ring); }
   padding-top: 0.5rem;
 }
 
-.confidence-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-.confidence-label {
-  width: 100%;
-}
-
 .empty-state {
   padding: 3.5rem;
   text-align: center;
@@ -1683,6 +1672,73 @@ select.toolbar-select:focus { border-color: var(--ring); }
 .blur-text { color: var(--blur); }
 .blur-bg { background: var(--blur-soft); }
 .blur-dot { background: var(--blur); }
+
+/* ===== FULL-SCREEN AUTH GATE ===== */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--background);
+}
+.auth-gate-card {
+  width: 100%;
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 2.5rem 2rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+}
+.auth-gate-logo {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius);
+  margin-bottom: 0.25rem;
+}
+.auth-gate-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.auth-gate-sub {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.5rem;
+}
+.auth-gate-google-btn {
+  width: 100%;
+  justify-content: center;
+}
+.auth-gate-error {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--sloppy);
+}
+.auth-gate-footnote {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+.auth-gate-spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  border-top-color: var(--signal);
+  animation: authGateSpin 0.7s linear infinite;
+}
+@keyframes authGateSpin {
+  to { transform: rotate(360deg); }
+}
 
 /* ===== EDIT DIALOG ===== */
 .dialog-overlay {
@@ -2046,6 +2102,10 @@ img, svg, canvas, table { max-width: 100%; }
 </style>
 </head>
 <body>
+<!-- Full-screen sign-in gate. Only ever shown when cloud sync is configured
+     (config.js present with real keys) — if it's not, this stays hidden
+     forever and the app behaves exactly as it always has: no account needed. -->
+<div id="authGate" class="auth-gate" style="display:none;"></div>
 <div id="app">
   <!-- Header -->
   <header class="header">
@@ -2312,6 +2372,67 @@ let cloudSyncState = "idle";    // "idle" | "syncing" | "error"
 let cloudSyncError = null;
 let cloudPushTimer = null;
 
+// ===== FULL-SCREEN AUTH GATE =====
+// When cloud sync is configured, the app stays hidden behind this gate
+// until someone's actually signed in. `authCheckComplete` covers the brief
+// async window where we don't yet know if there's an existing session —
+// without it we'd flash the sign-in page for a moment even for someone
+// who's already logged in.
+let authCheckComplete = false;
+let authGateError = null;
+
+// Hide the app behind the gate immediately (before init() does anything
+// heavier) if cloud sync is configured — avoids a flash of the real app
+// before we know whether there's a session. Safe here: all the `let`
+// state this reads (cloudUser, authCheckComplete, ...) is now declared,
+// and the DOM already exists since this script tag sits at the end of <body>.
+updateAuthGateVisibility();
+
+function updateAuthGateVisibility() {
+  const gate = document.getElementById("authGate");
+  const app = document.getElementById("app");
+  if (!gate || !app) return;
+
+  if (!cloudConfigured) {
+    // No Supabase project configured — there's nothing to gate behind.
+    gate.style.display = "none";
+    app.style.display = "";
+    return;
+  }
+  if (cloudUser) {
+    gate.style.display = "none";
+    app.style.display = "";
+    return;
+  }
+  gate.style.display = "flex";
+  app.style.display = "none";
+  renderAuthGate();
+}
+
+function renderAuthGate() {
+  const gate = document.getElementById("authGate");
+  if (!gate) return;
+
+  if (!authCheckComplete) {
+    gate.innerHTML = `<div class="auth-gate-card"><div class="auth-gate-spinner"></div></div>`;
+    return;
+  }
+
+  gate.innerHTML = `
+    <div class="auth-gate-card">
+      <img class="auth-gate-logo" src="icons/android-chrome-192x192.png" alt="Mistex logo">
+      <h1 class="auth-gate-title">Mistex</h1>
+      <p class="auth-gate-sub">Sign in to log, track, and revise your mistakes.</p>
+      <button class="btn btn-primary auth-gate-google-btn" onclick="signInWithGoogle()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Sign in with Google
+      </button>
+      ${authGateError ? `<p class="auth-gate-error">${authGateError}</p>` : ""}
+      <p class="auth-gate-footnote">Your data is private to your account and synced across devices.</p>
+    </div>
+  `;
+}
+
 function cloudAvatarInitial() {
   const source = cloudUser?.email || "";
   return source ? source[0].toUpperCase() : "?";
@@ -2319,12 +2440,15 @@ function cloudAvatarInitial() {
 
 async function signInWithGoogle() {
   if (!sb) return;
+  authGateError = null;
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: window.location.href },
   });
   if (error) {
+    authGateError = error.message;
     showToast("Sign-in failed: " + error.message, "error");
+    updateAuthGateVisibility();
   }
   // On success the browser navigates away to Google, then back — the
   // resulting session is picked up by onAuthStateChange in initCloudAuth().
@@ -2335,6 +2459,7 @@ async function signOutOfCloud() {
   await sb.auth.signOut();
   cloudUser = null;
   cloudSyncState = "idle";
+  updateAuthGateVisibility();
   render();
   showToast("Signed out. Your data stays on this device.");
 }
@@ -2429,7 +2554,8 @@ function renderSettingsIfVisible() {
   if (currentTab === "settings") render();
 }
 
-// Wires up auth state on load. Safe no-op when cloud sync isn't configured.
+// Wires up auth state on load. Safe no-op when cloud sync isn't configured
+// (updateAuthGateVisibility() already hides the gate entirely in that case).
 function initCloudAuth() {
   if (!sb) return;
   sb.auth.onAuthStateChange((event, session) => {
@@ -2439,6 +2565,8 @@ function initCloudAuth() {
       email: user.email || "",
       avatarUrl: user.user_metadata?.avatar_url || "",
     } : null;
+    authCheckComplete = true;
+    updateAuthGateVisibility();
     if (event === "SIGNED_IN") {
       pullFromCloud();
     } else {
@@ -2451,6 +2579,8 @@ function initCloudAuth() {
       cloudUser = { id: user.id, email: user.email || "", avatarUrl: user.user_metadata?.avatar_url || "" };
       pullFromCloud();
     }
+    authCheckComplete = true;
+    updateAuthGateVisibility();
   });
 }
 
@@ -2485,8 +2615,6 @@ let practiceAnswered = false; // Whether the user has answered the current card
 let practiceLastCorrect = null; // Auto-detected result for the current card
 let practiceRepeatedMistake = false; // Whether the user repeated the exact same wrong answer
 let practiceSkipped = false; // True when the user hit Enter without picking an option — worse than a wrong pick
-let practicePendingConfidence = false; // true when a correct answer is revealed but confidence hasn't been rated yet
-let practiceCorrectChosenText = null; // stashes the chosen (correct) option text while confidence is pending
 
 // Library state
 let libView = "cards";
@@ -2734,7 +2862,7 @@ function handleKeyboard(e) {
   if (currentTab === 'practice') {
     const current = practiceDeck[practiceIndex];
     if (e.key === ' ' || e.code === 'Space') {
-      if (practiceRevealed && !practicePendingConfidence) {
+      if (practiceRevealed) {
         e.preventDefault();
         nextCard();
         return;
@@ -2753,7 +2881,7 @@ function handleKeyboard(e) {
           practiceRevealed = true;
           renderPreserveScroll();
         }
-      } else if (current.options && !practicePendingConfidence) {
+      } else if (current.options) {
         nextCard();
       }
     }
@@ -2849,7 +2977,6 @@ function drillLeeches() {
   practiceAnswered = false;
   practiceLastCorrect = null;
   practiceRepeatedMistake = false;
-  practicePendingConfidence = false;
   commentingId = null;
   practiceSkipped = false;
   currentTab = "practice";
@@ -3362,13 +3489,7 @@ function removeMistake(id) {
   showToast("Entry deleted.");
 }
 
-// Rule 10 (confidence): a correct answer isn't graded the same if it was a
-// guess. "Guessed" resurfaces tomorrow and doesn't build the mastery streak;
-// "somewhat sure" builds the streak but on a shorter leash; "knew it" gets
-// the full graduated interval. Confidence is only meaningful for correct
-// answers — a wrong answer is a wrong answer regardless of how sure you were.
-const CONFIDENCE_GUESS_BUMP = 0.5;
-function gradeMistake(id, correct, chosenWrongText, skipped, confidence) {
+function gradeMistake(id, correct, chosenWrongText, skipped) {
   mistakes = mistakes.map(m => {
     if (m.id !== id) return m;
     const now = Date.now();
@@ -3383,35 +3504,26 @@ function gradeMistake(id, correct, chosenWrongText, skipped, confidence) {
     const chosen = (chosenWrongText || "").trim().toLowerCase();
     // Rule 3: same wrong option ticked again as when the mistake was first logged.
     const repeatedSameWrong = !correct && !skipped && !!previousWrong && chosen === previousWrong;
-    const guessed = correct && confidence === "guess";
 
     if (skipped) {
       intensity += SKIP_BUMP;                                        // rule 8
     } else if (!correct) {
       intensity += repeatedSameWrong ? REPEAT_WRONG_BUMP : WRONG_BUMP; // rules 1 & 3
-    } else if (guessed) {
-      intensity += CONFIDENCE_GUESS_BUMP;                             // rule 10
     }
     intensity = Math.min(base + INTENSITY_CAP, intensity);            // rule 7
 
-    const streak = correct && !guessed ? (m.correctStreak || 0) + 1 : (correct ? (m.correctStreak || 0) : 0);
+    const streak = correct ? (m.correctStreak || 0) + 1 : 0;
     const lastWrongAt = correct ? null : now;
 
     // Rules 4 & 5: graduated due dates instead of a flat mastered switch.
     let nextDueAt, mastered;
     if (correct) {
-      if (guessed) {
-        // Right answer, wrong reason to trust it — don't let a lucky guess
-        // buy a long interval or count toward mastery.
-        mastered = false;
-        nextDueAt = now + 1 * DAY_MS;
-      } else if (wasMastered || streak >= MASTERY_STREAK) {
+      if (wasMastered || streak >= MASTERY_STREAK) {
         mastered = true;
         nextDueAt = now + MASTERY_CHECKIN_DAYS * DAY_MS;   // monthly check-in
       } else {
         mastered = false;
-        let idx = Math.min(streak - 1, GRADUATED_INTERVALS_DAYS.length - 1);
-        if (confidence === "sure") idx = Math.max(0, idx - 1); // shorter leash than a confident "knew it"
+        const idx = Math.min(streak - 1, GRADUATED_INTERVALS_DAYS.length - 1);
         nextDueAt = now + GRADUATED_INTERVALS_DAYS[idx] * DAY_MS; // 3d / 7d / 18d
       }
     } else {
@@ -3435,7 +3547,6 @@ function gradeMistake(id, correct, chosenWrongText, skipped, confidence) {
       nextDueAt,
       lastReviewed: now,
       lastWrongAt,
-      lastConfidence: correct ? (confidence || null) : null,
       wrongAnswer,
       lastSkipped: !!skipped,
       skipCount: (m.skipCount || 0) + (skipped ? 1 : 0),
@@ -4800,14 +4911,7 @@ function renderPractice(el) {
                 ` : ""}
                 ${currentExplanationBody ? `<p class="reveal-explanation" style="margin-top:${(currentComments.length || commentingId === current.id) ? "0.5rem" : "1rem"};">${currentExplanationBody}</p>` : ""}
                 <div class="reveal-actions">
-                  ${practicePendingConfidence ? `
-                    <div class="confidence-row">
-                      <span class="label-mono confidence-label">How sure were you?</span>
-                      <button class="btn btn-secondary btn-sm" onclick="${current.options ? "confirmPracticeConfidence('guess')" : "confirmPracticeConfidenceManual('guess')"}">Guessed</button>
-                      <button class="btn btn-secondary btn-sm" onclick="${current.options ? "confirmPracticeConfidence('sure')" : "confirmPracticeConfidenceManual('sure')"}">Pretty sure</button>
-                      <button class="btn btn-good btn-sm" onclick="${current.options ? "confirmPracticeConfidence('knew')" : "confirmPracticeConfidenceManual('knew')"}">Knew it cold</button>
-                    </div>
-                  ` : !current.options ? `
+                  ${!current.options ? `
                     <button class="btn btn-good" onclick="answerPracticeManual(true)">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                       Got it right
@@ -4853,40 +4957,9 @@ function selectPracticeOption(index) {
   practiceSkipped = false;
   // Only surface "You said last time" when they repeated the exact same wrong pick.
   practiceRepeatedMistake = !correct && !!previousWrong && chosenText.toLowerCase() === previousWrong;
-  if (correct) {
-    // Defer grading until confidence is rated — a lucky guess shouldn't be
-    // scheduled the same as a confident correct answer.
-    practicePendingConfidence = true;
-    practiceCorrectChosenText = chosenText;
-  } else {
-    gradeMistake(current.id, false, chosenText);
-    practiceScore = { right: practiceScore.right, wrong: practiceScore.wrong + 1 };
-  }
+  gradeMistake(current.id, correct, correct ? undefined : chosenText);
+  practiceScore = { right: practiceScore.right + (correct ? 1 : 0), wrong: practiceScore.wrong + (correct ? 0 : 1) };
   renderPreserveScroll();
-}
-
-// Called after the user rates how confident they were in a correct MCQ pick.
-// Grades now (deferred from selectPracticeOption) and stays on the card so
-// the explanation is still visible — matches the existing "Next" flow.
-function confirmPracticeConfidence(level) {
-  const current = practiceDeck[practiceIndex];
-  if (!current || !practicePendingConfidence) return;
-  gradeMistake(current.id, true, undefined, false, level);
-  practiceScore = { right: practiceScore.right + 1, wrong: practiceScore.wrong };
-  practicePendingConfidence = false;
-  practiceCorrectChosenText = null;
-  renderPreserveScroll();
-}
-
-// Same idea for open-recall (non-MCQ) cards, but manual grading already
-// auto-advances to the next card once confidence is in.
-function confirmPracticeConfidenceManual(level) {
-  const current = practiceDeck[practiceIndex];
-  if (!current || !practicePendingConfidence) return;
-  gradeMistake(current.id, true, undefined, false, level);
-  practiceScore = { right: practiceScore.right + 1, wrong: practiceScore.wrong };
-  practicePendingConfidence = false;
-  nextCard();
 }
 
 // Enter pressed on an MCQ with nothing picked: don't silently reveal the answer.
@@ -4918,14 +4991,8 @@ function practiceReveal() {
 function answerPracticeManual(correct) {
   const current = practiceDeck[practiceIndex];
   if (!current) return;
-  if (correct) {
-    // Defer grading until confidence is rated, same as the MCQ path.
-    practicePendingConfidence = true;
-    renderPreserveScroll();
-    return;
-  }
-  gradeMistake(current.id, false);
-  practiceScore = { right: practiceScore.right, wrong: practiceScore.wrong + 1 };
+  gradeMistake(current.id, correct);
+  practiceScore = { right: practiceScore.right + (correct ? 1 : 0), wrong: practiceScore.wrong + (correct ? 0 : 1) };
   nextCard();
 }
 
@@ -4935,8 +5002,6 @@ function nextCard() {
   practiceSelectedOption = null;
   practiceLastCorrect = null;
   practiceRepeatedMistake = false;
-  practicePendingConfidence = false;
-  practiceCorrectChosenText = null;
   commentingId = null;
   practiceSkipped = false;
   practiceIndex++;
@@ -4971,8 +5036,6 @@ function resetPractice() {
   practiceAnswered = false;
   practiceLastCorrect = null;
   practiceRepeatedMistake = false;
-  practicePendingConfidence = false;
-  practiceCorrectChosenText = null;
   commentingId = null;
   practiceSkipped = false;
   renderPreserveScroll();
