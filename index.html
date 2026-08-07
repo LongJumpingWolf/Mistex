@@ -356,17 +356,6 @@ h1, h2, h3 {
   gap: 1.5rem;
   padding: 1.5rem;
 }
-.backup-reminder {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  flex-wrap: wrap;
-}
-@media (max-width: 640px) {
-  .backup-reminder { flex-direction: column; align-items: stretch; }
-}
 @media (min-width: 768px) {
   .hero-panel {
     grid-template-columns: 1.1fr 1fr;
@@ -1228,7 +1217,7 @@ select.toolbar-select:focus { border-color: var(--ring); }
   line-height: 1.4;
   margin-bottom: 0.15rem;
 }
-.explanation-comment::before { content: "— "; opacity: 0.6; }
+.explanation-comment::before { content: "•  "; opacity: 0.6; }
 .comment-input-row {
   display: flex;
   gap: 0.5rem;
@@ -1522,6 +1511,189 @@ select.toolbar-select:focus { border-color: var(--ring); }
   gap: 1rem;
 }
 
+/* ===== PRACTICE SETUP SCREEN ===== */
+.setup-panel { padding: 1.5rem; }
+.setup-block {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.setup-block-label {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+.setup-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.setup-count-custom {
+  width: 6rem;
+}
+.setup-note {
+  margin-top: 0.625rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+.setup-start-btn {
+  margin-top: 1.75rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.chip-sm { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
+.chip-partial {
+  background: var(--comment-soft);
+  color: var(--comment);
+  border-color: var(--comment);
+}
+
+.folder-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.folder-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+.folder-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  border-radius: 999px;
+}
+.folder-expand-btn:hover { background: var(--muted); color: var(--foreground); }
+.folder-picker-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 0.5rem 0 0.25rem 1.5rem;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  font-family: inherit;
+}
+.toggle-switch {
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.toggle-switch.on { background: var(--signal); }
+.toggle-knob {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--paper);
+  transition: transform 0.15s;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.2);
+}
+.toggle-switch.on .toggle-knob { transform: translateX(1rem); }
+
+/* Difficulty slider: a horizontal track with 3 fixed checkpoints. The
+   handle can only ever rest at one of the three — see startDifficultyDrag. */
+.difficulty-track {
+  position: relative;
+  height: 3.5rem;
+  margin: 0 0.5rem;
+  cursor: pointer;
+  touch-action: none;
+}
+.difficulty-track-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.difficulty-checkpoint {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  pointer-events: none;
+}
+.difficulty-checkpoint-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  border: 2px solid var(--border);
+  color: var(--muted-foreground);
+  transform: translateY(-0.6875rem);
+}
+.difficulty-checkpoint-label {
+  margin-top: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+@keyframes checkpointLand {
+  0% { transform: translateY(-0.6875rem) scale(1) rotate(0deg); }
+  35% { transform: translateY(-0.6875rem) scale(1.35) rotate(-8deg); }
+  60% { transform: translateY(-0.6875rem) scale(0.92) rotate(5deg); }
+  100% { transform: translateY(-0.6875rem) scale(1) rotate(0deg); }
+}
+.difficulty-checkpoint-icon.landed {
+  animation: checkpointLand 0.5s cubic-bezier(.34, 1.56, .64, 1);
+  border-color: var(--signal);
+  color: var(--signal);
+}
+.difficulty-handle {
+  position: absolute;
+  top: -0.6875rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--ink);
+  border: 3px solid var(--paper);
+  box-shadow: 0 2px 6px oklch(0 0 0 / 0.25);
+  transform: translateX(-50%);
+  cursor: grab;
+  transition: left 0.2s cubic-bezier(.34, 1.56, .64, 1);
+}
+.difficulty-handle.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
 .flashcard {
   overflow: hidden;
 }
@@ -1779,6 +1951,9 @@ select.toolbar-select:focus { border-color: var(--ring); }
   padding: 1.5rem;
   box-shadow: var(--shadow-lift);
   animation: scaleIn 0.2s;
+}
+.dialog-content-sm {
+  max-width: 24rem;
 }
 .dialog-close-btn {
   position: absolute;
@@ -2170,6 +2345,19 @@ img, svg, canvas, table { max-width: 100%; }
   </div>
 </div>
 
+<!-- Generic Confirm Dialog — replaces window.confirm() so every prompt in
+     the app shares the same look, instead of an unstyled browser box. -->
+<div id="confirmDialog" class="dialog-overlay" style="display:none;" onclick="closeConfirmDialogOutside(event)">
+  <div class="dialog-content dialog-content-sm" onclick="event.stopPropagation()">
+    <h2 class="dialog-title" id="confirmDialogTitle"></h2>
+    <p style="margin-bottom:1.5rem; color:var(--muted-foreground); white-space:pre-line;" id="confirmDialogMessage"></p>
+    <div class="dialog-footer">
+      <button class="btn" id="confirmDialogCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="confirmDialogOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Dialog -->
 <div id="editDialog" class="dialog-overlay" style="display:none;" onclick="closeDialogOutside(event)">
   <div class="dialog-content" onclick="event.stopPropagation()">
@@ -2273,14 +2461,26 @@ function revisionReasonLabel(m) {
   return `reviewed ${formatRelativeAge(m.lastReviewed)}`;
 }
 
+// Rule 9, applied live: the stored `intensity` field only gets its decay
+// baked in the next time a card is graded, so reading it raw here would mean
+// a card sitting untouched for weeks still sorts as if no time had passed.
+// This recomputes the same decay against "now" for ordering purposes only —
+// it doesn't write anything back, gradeMistake() still owns the real update.
+function liveIntensity(m) {
+  const base = CATEGORY_BASE_INTENSITY[m.category] ?? 1;
+  const stored = m.intensity ?? base;
+  const idleDays = m.lastReviewed ? Math.max(0, (Date.now() - m.lastReviewed) / DAY_MS) : 0;
+  return Math.max(base, stored - idleDays * DECAY_PER_DAY);
+}
+
 function dueOrderCompare(a, b) {
   const now = Date.now();
   const aDue = (a.nextDueAt ?? 0) <= now;
   const bDue = (b.nextDueAt ?? 0) <= now;
   if (aDue !== bDue) return aDue ? -1 : 1;   // cards past their due date go first
 
-  const aIntensity = a.intensity ?? (CATEGORY_BASE_INTENSITY[a.category] ?? 1);
-  const bIntensity = b.intensity ?? (CATEGORY_BASE_INTENSITY[b.category] ?? 1);
+  const aIntensity = liveIntensity(a);
+  const bIntensity = liveIntensity(b);
   if (aIntensity !== bIntensity) return bIntensity - aIntensity; // higher intensity first
 
   const aWrong = a.lastWrongAt || 0;
@@ -2310,6 +2510,238 @@ function buildRevisionSet(pool, size) {
   const rest = ranked.filter(m => !boostedIds.has(m.id));
   const combined = [...boosted, ...rest.slice(0, size - boosted.length)];
   return combined.sort(dueOrderCompare);
+}
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Subject -> chapter counts, for the folder picker on the practice setup
+// screen. Kept separate from the Library tree view's grouping since this
+// one only needs counts, not the actual mistake objects per node.
+function computeFolderTree() {
+  const tree = new Map();
+  for (const m of mistakes) {
+    const subject = m.subject || "Unsorted";
+    const chapter = m.chapter || "General";
+    const entry = tree.get(subject) || { subject, count: 0, chapters: new Map() };
+    entry.count += 1;
+    entry.chapters.set(chapter, (entry.chapters.get(chapter) || 0) + 1);
+    tree.set(subject, entry);
+  }
+  return [...tree.values()].sort((a, b) => b.count - a.count);
+}
+
+// Resolves the practice-setup folder selection into an actual pool of
+// mistakes. A selected "Subject" key includes every chapter under it; a
+// selected "Subject > Chapter" key is scoped to just that chapter. No
+// selection at all means everything.
+function resolveFolderScopedPool() {
+  if (!practiceSetupFolders.length) return mistakes;
+  const subjectKeys = new Set(practiceSetupFolders.filter(k => !k.includes(" > ")));
+  const chapterKeys = new Set(practiceSetupFolders.filter(k => k.includes(" > ")));
+  return mistakes.filter(m => {
+    const subject = m.subject || "Unsorted";
+    const chapter = m.chapter || "General";
+    return subjectKeys.has(subject) || chapterKeys.has(`${subject} > ${chapter}`);
+  });
+}
+
+function resolvedPracticeCount() {
+  if (practiceSetupCount === "custom") {
+    const n = parseInt(practiceSetupCustomCount, 10);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : PRACTICE_COUNT_PRESETS[1];
+  }
+  return practiceSetupCount;
+}
+
+// Builds the session deck from the current setup-screen selections:
+//   - folder scope (practiceSetupFolders)
+//   - requested count, topped up from mastered cards (ranked by intensity,
+//     i.e. FSRS "level") if there aren't enough unmastered cards to fill it
+//   - difficulty (see comment above DIFFICULTY_LEVELS below)
+//   - random on/off
+function buildConfiguredPracticeDeck() {
+  const scoped = resolveFolderScopedPool();
+  const count = resolvedPracticeCount();
+  const unmastered = scoped.filter(m => !m.mastered);
+  const masteredPool = scoped.filter(m => m.mastered);
+
+  let basePool;
+  if (unmastered.length >= count || !masteredPool.length) {
+    basePool = unmastered.length ? unmastered : scoped;
+  } else {
+    // Not enough unmastered cards to fill the requested count — top up from
+    // mastered ones, ranked by current (live-decayed) intensity descending,
+    // so the mastered cards most likely to actually need a refresher are
+    // the ones pulled in first.
+    const need = count - unmastered.length;
+    const topUp = [...masteredPool].sort((a, b) => liveIntensity(b) - liveIntensity(a)).slice(0, need);
+    basePool = [...unmastered, ...topUp];
+  }
+  if (!basePool.length) basePool = scoped;
+
+  // Difficulty shapes which cards within the pool get priority:
+  //   Real Stuff — no mercy: leeches and highest-intensity/most-overdue
+  //     cards first, strict priority order, no shuffling of the selection.
+  //   Normal — the default due-priority ranking (starred cards boosted).
+  //   Chocolate — a gentler session: lower-intensity, easier-going cards
+  //     first, so it leans toward stuff you're closer to having down.
+  let ranked;
+  if (practiceSetupDifficulty === 0) {
+    ranked = [...basePool].sort((a, b) => {
+      const aLeech = (a.repeatedWrongCount || 0) >= LEECH_REPEAT_THRESHOLD || ((a.attempts || 0) >= LEECH_ATTEMPT_THRESHOLD && (a.correctStreak || 0) === 0);
+      const bLeech = (b.repeatedWrongCount || 0) >= LEECH_REPEAT_THRESHOLD || ((b.attempts || 0) >= LEECH_ATTEMPT_THRESHOLD && (b.correctStreak || 0) === 0);
+      if (aLeech !== bLeech) return aLeech ? -1 : 1;
+      return dueOrderCompare(a, b);
+    });
+  } else if (practiceSetupDifficulty === 2) {
+    ranked = [...basePool].sort((a, b) => liveIntensity(a) - liveIntensity(b));
+  } else {
+    ranked = buildRevisionSet(basePool, basePool.length); // reuse the starred-boost + due-priority logic
+  }
+
+  let selected = ranked.slice(0, count);
+  if (practiceSetupRandom) selected = shuffleArray(selected);
+  return selected;
+}
+
+function startPracticeSession() {
+  practiceDeck = buildConfiguredPracticeDeck();
+  practiceIndex = 0;
+  practiceRevealed = false;
+  practiceScore = { right: 0, wrong: 0 };
+  practiceSelectedOption = null;
+  practiceAnswered = false;
+  practiceLastCorrect = null;
+  practiceRepeatedMistake = false;
+  commentingId = null;
+  practiceSkipped = false;
+  practiceSetupMode = false;
+  renderPreserveScroll();
+}
+
+function backToPracticeSetup() {
+  practiceSetupMode = true;
+  renderPreserveScroll();
+}
+
+// ===== PRACTICE SETUP CONTROLS =====
+function setPracticeSetupCount(n) {
+  practiceSetupCount = n;
+  renderPreserveScroll();
+}
+
+function setPracticeSetupCustomCount(value) {
+  practiceSetupCustomCount = value.replace(/[^0-9]/g, "");
+  practiceSetupCount = "custom";
+  renderPreserveScroll();
+}
+
+function togglePracticeSetupRandom() {
+  practiceSetupRandom = !practiceSetupRandom;
+  renderPreserveScroll();
+}
+
+function toggleFolderExpanded(subject) {
+  practiceSetupFoldersExpanded = practiceSetupFoldersExpanded.includes(subject)
+    ? practiceSetupFoldersExpanded.filter(s => s !== subject)
+    : [...practiceSetupFoldersExpanded, subject];
+  renderPreserveScroll();
+}
+
+// Toggling a subject on/off also clears/adds all of its chapter-level keys,
+// so a subject checkbox and its chapters never end up in a contradictory
+// half-selected state.
+function toggleFolderSubject(subject) {
+  const tree = computeFolderTree().find(s => s.subject === subject);
+  const chapterKeys = tree ? [...tree.chapters.keys()].map(c => `${subject} > ${c}`) : [];
+  const isSelected = practiceSetupFolders.includes(subject);
+  if (isSelected) {
+    practiceSetupFolders = practiceSetupFolders.filter(k => k !== subject && !chapterKeys.includes(k));
+  } else {
+    practiceSetupFolders = [...practiceSetupFolders.filter(k => !chapterKeys.includes(k)), subject];
+  }
+  renderPreserveScroll();
+}
+
+function toggleFolderChapter(subject, chapter) {
+  const key = `${subject} > ${chapter}`;
+  practiceSetupFolders = practiceSetupFolders.includes(subject)
+    ? practiceSetupFolders.filter(k => k !== subject) // was "whole subject" — now going granular
+    : practiceSetupFolders;
+  practiceSetupFolders = practiceSetupFolders.includes(key)
+    ? practiceSetupFolders.filter(k => k !== key)
+    : [...practiceSetupFolders, key];
+  renderPreserveScroll();
+}
+
+function clearFolderSelection() {
+  practiceSetupFolders = [];
+  renderPreserveScroll();
+}
+
+// ===== DIFFICULTY SLIDER (drag-to-snap, 3 checkpoints) =====
+// The handle follows the pointer live via direct style updates (no re-render
+// mid-drag — a full innerHTML rebuild on every pointermove would be janky),
+// then snaps to the nearest of the 3 fixed positions on release and commits
+// that as the real state, triggering the landing animation.
+function difficultyPercentForLevel(level) {
+  return level === 0 ? 0 : level === 1 ? 50 : 100;
+}
+
+function startDifficultyDrag(e) {
+  const track = document.getElementById("difficultyTrack");
+  const handle = document.getElementById("difficultyHandle");
+  if (!track || !handle) return;
+  e.preventDefault();
+  difficultyDragging = true;
+  handle.classList.add("dragging");
+
+  const pctFromEvent = (ev) => {
+    const rect = track.getBoundingClientRect();
+    const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+  };
+
+  const move = (ev) => {
+    if (!difficultyDragging) return;
+    handle.style.left = pctFromEvent(ev) + "%";
+  };
+
+  const up = (ev) => {
+    if (!difficultyDragging) return;
+    difficultyDragging = false;
+    handle.classList.remove("dragging");
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("touchmove", move);
+    document.removeEventListener("touchend", up);
+    const pct = pctFromEvent(ev.changedTouches ? { touches: ev.changedTouches } : ev);
+    const level = pct < 33.34 ? 0 : pct < 66.67 ? 1 : 2;
+    practiceSetupDifficulty = level;
+    renderPreserveScroll();
+    requestAnimationFrame(() => triggerDifficultyLandAnimation(level));
+  };
+
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+  document.addEventListener("touchmove", move, { passive: false });
+  document.addEventListener("touchend", up);
+  move(e);
+};
+
+function triggerDifficultyLandAnimation(level) {
+  const icon = document.querySelector(`.difficulty-checkpoint[data-level="${level}"] .difficulty-checkpoint-icon`);
+  if (!icon) return;
+  icon.classList.remove("landed");
+  void icon.offsetWidth; // restart the animation even if it's the same level clicked twice
+  icon.classList.add("landed");
 }
 
 const AI_PROMPT = `You are an expert assistant that extracts MCQ mistake details from screenshots of practice tests.
@@ -2590,9 +3022,14 @@ const CATEGORY_BASE_INTENSITY = { "Sloppy": 1, "Blur": 1.5, "Stretch": 1.5, "A-h
 const INTENSITY_CAP = 5;              // rule 7: max bump stacked on top of base
 const WRONG_BUMP = 1;                 // rule 1
 const REPEAT_WRONG_BUMP = 2;          // rule 3 (replaces the rule-1 bump, not additive)
-const SKIP_BUMP = 0.5;                // rule 8
+const CORRECT_COOLDOWN = 0.5;         // rule 2: a correct answer eases intensity back down —
+                                       // without this, intensity only ever climbs or idle-decays,
+                                       // so a card you've since mastered keeps ranking as urgent
+const SKIP_BUMP = 1.5;                // rule 8: worse than a plain wrong pick — the user wasn't
+                                       // even willing to commit to an option, not just mistaken
 const DECAY_PER_DAY = 0.05;           // rule 9: intensity fades slowly if the card sits untouched
-const GRADUATED_INTERVALS_DAYS = [3, 7, 18, 30]; // rule 4: correctStreak 1 / 2 / 3 / 4+
+const GRADUATED_INTERVALS_DAYS = [3, 7, 18]; // rule 4: correctStreak 1 / 2 / 3 — streak hits
+                                              // MASTERY_STREAK (4) before ever needing a 4th tier
 const MASTERY_STREAK = 4;             // rule 4: graduate to "mastered" after 4 correct in a row
 const MASTERY_CHECKIN_DAYS = 30;      // rule 5: monthly check-in for mastered cards
 
@@ -2605,7 +3042,6 @@ let replayCheckpointOnRender = true; // true on first load; re-armed on tab entr
 let currentHeatmapWeeks = 0;
 
 // Practice ("Revise mistakes") state
-let practiceSize = 20;
 let practiceDeck = []; // frozen for the session so grading a card mid-session doesn't reshuffle it
 let practiceIndex = 0;
 let practiceRevealed = false;
@@ -2615,6 +3051,27 @@ let practiceAnswered = false; // Whether the user has answered the current card
 let practiceLastCorrect = null; // Auto-detected result for the current card
 let practiceRepeatedMistake = false; // Whether the user repeated the exact same wrong answer
 let practiceSkipped = false; // True when the user hit Enter without picking an option — worse than a wrong pick
+
+// Practice setup screen — shown before a test starts, not just a size toggle
+// mid-deck. "Start revising" and the Revise nav item both land here first.
+let practiceSetupMode = true;
+let practiceSetupCount = 20;           // one of PRACTICE_COUNT_PRESETS, or "custom"
+let practiceSetupCustomCount = "";     // raw text of the custom-count field
+let practiceSetupFolders = [];         // selected "Subject" or "Subject > Chapter" keys; empty = everything
+let practiceSetupFoldersExpanded = []; // which subjects are expanded in the folder picker
+let practiceSetupRandom = true;
+let practiceSetupDifficulty = 1;       // 0 = Real Stuff, 1 = Normal, 2 = Chocolate
+let difficultyDragging = false;
+const PRACTICE_COUNT_PRESETS = [10, 20, 30];
+const DIFFICULTY_LEVELS = [
+  { level: 0, label: "Real Stuff" },
+  { level: 1, label: "Normal" },
+  { level: 2, label: "Chocolate" },
+];
+
+// Test-review screen — opened from a Test History row, shows that batch of
+// logged mistakes as a static reviewable list (not a live graded session).
+let testReviewBatchId = null;
 
 // Library state
 let libView = "cards";
@@ -2859,7 +3316,7 @@ function handleKeyboard(e) {
 
   // In revise mode: Enter reveals, then Enter again advances auto-graded cards.
   // Space does the same once the answer is already revealed.
-  if (currentTab === 'practice') {
+  if (currentTab === 'practice' && !practiceSetupMode && !testReviewBatchId) {
     const current = practiceDeck[practiceIndex];
     if (e.key === ' ' || e.code === 'Space') {
       if (practiceRevealed) {
@@ -2979,37 +3436,13 @@ function drillLeeches() {
   practiceRepeatedMistake = false;
   commentingId = null;
   practiceSkipped = false;
+  practiceSetupMode = false; // leeches drill straight into the deck, bypassing setup
+  testReviewBatchId = null;
   currentTab = "practice";
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   const btn = document.querySelector('[data-tab="practice"]');
   if (btn) btn.classList.add("active");
   render();
-}
-
-// ===== BACKUP REMINDER =====
-// There's no account or server here — everything lives in this browser's
-// localStorage. This nudges people to export a backup periodically instead
-// of silently letting a semester of logged mistakes ride on one browser
-// profile never being cleared. Not real multi-device sync (that would need
-// a backend), just insurance against data loss.
-const EXPORT_REMINDER_INTERVAL_DAYS = 14;
-const EXPORT_REMINDER_SNOOZE_DAYS = 7;
-const EXPORT_REMINDER_MIN_MISTAKES = 5;
-function shouldShowExportReminder() {
-  if (mistakes.length < EXPORT_REMINDER_MIN_MISTAKES) return false;
-  const now = Date.now();
-  const sinceExport = now - (settings.lastExportAt || 0);
-  if (sinceExport < EXPORT_REMINDER_INTERVAL_DAYS * DAY_MS) return false;
-  const sinceDismiss = now - (settings.exportReminderDismissedAt || 0);
-  if (sinceDismiss < EXPORT_REMINDER_SNOOZE_DAYS * DAY_MS) return false;
-  return true;
-}
-
-function dismissExportReminder() {
-  settings.exportReminderDismissedAt = Date.now();
-  save();
-  const el = document.getElementById("exportReminderBanner");
-  if (el) el.remove();
 }
 
 function buildHeatmapHTML(days) {
@@ -3464,9 +3897,9 @@ function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.querySelector(`[data-tab="${tab}"]`).classList.add("active");
-  if (tab === "dashboard") replayCheckpointOnRender = true;
-  if (tab === "practice") resetPractice();
-  else render();
+  if (tab === "dashboard") { replayCheckpointOnRender = true; rerollDashboardPhrase(); }
+  if (tab === "practice") { practiceSetupMode = true; testReviewBatchId = null; }
+  render();
 }
 
 // ===== ACTIONS =====
@@ -3500,15 +3933,25 @@ function gradeMistake(id, correct, chosenWrongText, skipped) {
     let intensity = Math.max(base, (m.intensity ?? base) - idleDays * DECAY_PER_DAY);
 
     const wasMastered = !!m.mastered;
-    const previousWrong = (m.wrongAnswer || "").trim().toLowerCase();
+    // Rule 3: catch repeats even if they alternate between wrong options
+    // rather than picking the exact same one twice in a row — bouncing
+    // between two wrong answers is if anything a stronger leech signal than
+    // picking the same one consecutively, so it should count the same way.
+    // Older saved mistakes only ever had a single `wrongAnswer` string, so
+    // fall back to treating that as a one-item history.
+    const previousWrongHistory = Array.isArray(m.wrongAnswerHistory)
+      ? m.wrongAnswerHistory
+      : (m.wrongAnswer ? [m.wrongAnswer] : []);
     const chosen = (chosenWrongText || "").trim().toLowerCase();
-    // Rule 3: same wrong option ticked again as when the mistake was first logged.
-    const repeatedSameWrong = !correct && !skipped && !!previousWrong && chosen === previousWrong;
+    const repeatedSameWrong = !correct && !skipped && !!chosen &&
+      previousWrongHistory.some(w => (w || "").trim().toLowerCase() === chosen);
 
     if (skipped) {
       intensity += SKIP_BUMP;                                        // rule 8
     } else if (!correct) {
       intensity += repeatedSameWrong ? REPEAT_WRONG_BUMP : WRONG_BUMP; // rules 1 & 3
+    } else {
+      intensity = Math.max(base, intensity - CORRECT_COOLDOWN);       // rule 2
     }
     intensity = Math.min(base + INTENSITY_CAP, intensity);            // rule 7
 
@@ -3536,6 +3979,9 @@ function gradeMistake(id, correct, chosenWrongText, skipped) {
     const wrongAnswer = skipped
       ? "(no option chosen — skipped)"
       : (!correct && chosenWrongText ? chosenWrongText : m.wrongAnswer);
+    const wrongAnswerHistory = (!correct && !skipped && chosenWrongText)
+      ? [...previousWrongHistory, chosenWrongText].slice(-5)
+      : previousWrongHistory;
 
     return {
       ...m,
@@ -3548,6 +3994,7 @@ function gradeMistake(id, correct, chosenWrongText, skipped) {
       lastReviewed: now,
       lastWrongAt,
       wrongAnswer,
+      wrongAnswerHistory,
       lastSkipped: !!skipped,
       skipCount: (m.skipCount || 0) + (skipped ? 1 : 0),
       repeatedWrongCount: (m.repeatedWrongCount || 0) + (repeatedSameWrong ? 1 : 0),
@@ -3673,7 +4120,7 @@ function parseSingleMarkdown(text) {
       else if (key.includes("topic")) data.topic = value;
       else if (key.includes("question")) data.question = value;
       else if (key.includes("option") || key.includes("choice")) data.options = value;
-      else if (key.includes("wrong") || key.includes("selected") || key.includes("your answer")) data.wrongAnswer = value;
+      else if (key.includes("wrong") || key.includes("incorrect") || key.includes("selected") || key.includes("your answer")) data.wrongAnswer = value;
       else if (key.includes("correct") || key.includes("right")) data.correctAnswer = value;
       else if (key.includes("explanation") || key.includes("reason")) data.explanation = value;
       else if (key.includes("golden") || key.includes("pearl")) data.goldenFact = value;
@@ -3746,24 +4193,43 @@ function categoryTagHTML(category) {
 }
 
 // ===== DASHBOARD =====
+// Rotating headline phrases so the hero doesn't say the exact same sentence
+// every single visit — re-rolled once per Overview visit (see switchTab),
+// not on every render, so it doesn't change mid-visit.
+const QUOTA_PHRASES_PENDING = [
+  n => `${n} more to close out the week.`,
+  n => `${n} mistake${n === 1 ? "" : "s"} stand between you and quota.`,
+  n => `${n} left. Keep going.`,
+  n => `${n} more logs and the week's covered.`,
+  n => `${n} to go before the week wraps up.`,
+  n => `${n} more, then you're done for the week.`,
+  n => `${n} away from clearing this week.`,
+  n => `One at a time — ${n} more to go.`,
+  n => `Log ${n} more and call it a week.`,
+];
+const QUOTA_PHRASES_DONE = [
+  "Weekly quota cleared.",
+  "Quota's done — anything else is bonus.",
+  "You've hit the mark this week.",
+  "Cleared. Nice work.",
+  "Quota met. The rest is extra credit.",
+  "Done for the week, if you want to stop here.",
+  "That's the week handled.",
+];
+let dashboardPhraseIndex = Math.floor(Math.random() * 100);
+function rerollDashboardPhrase() {
+  dashboardPhraseIndex = Math.floor(Math.random() * 100);
+}
+function pickQuotaText(weekCount, goal) {
+  if (weekCount >= goal) return QUOTA_PHRASES_DONE[dashboardPhraseIndex % QUOTA_PHRASES_DONE.length];
+  const remaining = Math.max(0, goal - weekCount);
+  return QUOTA_PHRASES_PENDING[dashboardPhraseIndex % QUOTA_PHRASES_PENDING.length](remaining);
+}
+
 function renderDashboard(el, stats) {
   const weekCount = stats.weekCount;
   const goal = stats.goal;
-  const quotaText = weekCount >= goal ? "Weekly quota cleared." : `${Math.max(0, goal - weekCount)} more logs to hit this week's quota.`;
-  const backupBannerHTML = shouldShowExportReminder() ? `
-    <div class="panel backup-reminder" id="exportReminderBanner">
-      <div>
-        <p style="font-weight:500; font-size:0.875rem;">Back up your data</p>
-        <p style="margin-top:0.125rem; font-size:0.8125rem; color:var(--muted-foreground);">Everything here lives only in this browser — nothing is synced to an account or server. Export a backup before switching devices or clearing browser data.</p>
-      </div>
-      <div style="display:flex; gap:0.5rem; flex-shrink:0;">
-        <button class="btn btn-sm btn-primary" onclick="exportData().then(renderPreserveScroll)">Export now</button>
-        <button class="btn btn-sm btn-ghost" onclick="dismissExportReminder()">Later</button>
-      </div>
-    </div>
-  ` : "";
-
-
+  const quotaText = pickQuotaText(weekCount, goal);
 
   const isPhoneWidth = window.innerWidth <= 600;
   let heatmapRangeDays = settings.heatmapRangeDays || 30;
@@ -3788,7 +4254,6 @@ function renderDashboard(el, stats) {
 
   el.innerHTML = `
     <div class="space-y-6">
-      ${backupBannerHTML}
       <!-- Hero -->
       <section class="panel hero-panel">
         <div>
@@ -4193,7 +4658,7 @@ function renderLibrary(el) {
       <div class="panel library-toolbar${libSearchExpanded ? " search-active" : ""}" id="libToolbar">
         <div class="search-wrap">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input class="input search-input" id="libSearch" value="${libQuery}" placeholder="Search questions, topics, explanations…" oninput="handleLibSearchInput(this)" onfocus="handleLibSearchFocus()" onkeydown="handleLibSearchKeydown(event)">
+          <input class="input search-input" id="libSearch" value="${escHtmlAttr(libQuery)}" placeholder="Search questions, topics, explanations…" oninput="handleLibSearchInput(this)" onfocus="handleLibSearchFocus()" onkeydown="handleLibSearchKeydown(event)">
         </div>
         <div class="filter-row">
           <div class="filter-cluster">
@@ -4504,7 +4969,7 @@ function renderTestHistoryRows() {
     const masteredCount = t.items.filter(m => m.mastered).length;
     const pct = total ? Math.round((masteredCount / total) * 100) : 0;
     return `
-      <tr>
+      <tr class="test-history-row" onclick="openTestReview('${escJsStr(t.batchId)}')" tabindex="0">
         <td class="test-history-sr" data-label="Sr No.">${t.testNumber}</td>
         <td class="test-history-name" data-label="Test Name">${testName}</td>
         <td class="test-history-focus" data-label="Topic to Focus On">${t.focusTopic}</td>
@@ -4572,26 +5037,6 @@ function renderSettings(el) {
           <input type="file" id="importFileInput" accept=".zip,.json" style="display:none;" onchange="importData(event)">
         </div>
         <p id="dataIOStatus" style="margin-top:0.75rem; font-size:0.75rem; color:var(--muted-foreground);"></p>
-      </section>
-
-      <section class="panel settings-panel">
-        <h2 class="settings-panel-title">Test History</h2>
-        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Every batch of mistakes logged in one go counts as a test. "Mastered" is derived automatically from how you've actually done revising each one — nothing to type in.</p>
-        <div class="test-history-scroll" style="margin-top:1.25rem;">
-          <table class="test-history-table responsive-table">
-            <thead>
-              <tr>
-                <th style="width:3.5rem;">Sr No.</th>
-                <th>Test Name</th>
-                <th>Topic to Focus On</th>
-                <th style="width:8.5rem;">Mastered</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${renderTestHistoryRows()}
-            </tbody>
-          </table>
-        </div>
       </section>
     </div>`;
 }
@@ -4702,6 +5147,43 @@ function closeRevisionNoteOutside(e) {
   if (e.target === document.getElementById("revisionNoteDialog")) dismissRevisionNote();
 }
 
+// ===== GENERIC CONFIRM DIALOG =====
+// Drop-in replacement for window.confirm() that matches the app's own
+// dialog styling instead of an unstyled browser prompt. Usage:
+//   const ok = await showConfirmDialog("Title", "Message body");
+//   if (!ok) return;
+let _confirmDialogResolve = null;
+
+function showConfirmDialog(title, message, options) {
+  const opts = options || {};
+  const overlay = document.getElementById("confirmDialog");
+  document.getElementById("confirmDialogTitle").textContent = title;
+  document.getElementById("confirmDialogMessage").textContent = message;
+  const okBtn = document.getElementById("confirmDialogOkBtn");
+  const cancelBtn = document.getElementById("confirmDialogCancelBtn");
+  okBtn.textContent = opts.okLabel || "OK";
+  cancelBtn.textContent = opts.cancelLabel || "Cancel";
+  okBtn.className = "btn " + (opts.destructive ? "btn-destructive" : "btn-primary");
+  overlay.style.display = "flex";
+
+  return new Promise((resolve) => {
+    _confirmDialogResolve = resolve;
+    okBtn.onclick = () => resolveConfirmDialog(true);
+    cancelBtn.onclick = () => resolveConfirmDialog(false);
+  });
+}
+
+function resolveConfirmDialog(result) {
+  document.getElementById("confirmDialog").style.display = "none";
+  const resolve = _confirmDialogResolve;
+  _confirmDialogResolve = null;
+  if (resolve) resolve(result);
+}
+
+function closeConfirmDialogOutside(e) {
+  if (e.target === document.getElementById("confirmDialog")) resolveConfirmDialog(false);
+}
+
 function openEditDialog(id) {
   editingId = id;
   const m = mistakes.find(x => x.id === id);
@@ -4782,24 +5264,255 @@ function splitOptions(m) {
   return (m.options || "").split(/,\s*(?=[A-Ea-e][).\s])/).map(o => o.trim()).filter(Boolean);
 }
 
+// Grading a picked option used to compare option text against correctAnswer
+// with `.includes()` in both directions — meant to tolerate a correctAnswer
+// that's typed as an abbreviated version of the full option text. But plain
+// substring containment is unsafe: any option whose text happens to be a
+// substring of another (numeric answers like "50" inside "500", or a drug
+// name that's a prefix of a combination drug's name) would silently grade
+// as a match even though they're different options entirely.
+// Since every option and correctAnswer in this app's format carries its own
+// leading letter ("A.", "B)", ...), that letter is the actual unambiguous
+// identity of the choice — use it as the primary comparison, and only fall
+// back to fuzzy text matching for the rare entry with no letter prefix at all.
+function extractOptionLetter(s) {
+  const m = String(s || "").trim().match(/^([A-Ea-e])[).]/);
+  return m ? m[1].toUpperCase() : null;
+}
+
 function isOptionCorrect(optionText, correctAnswer) {
-  const o = optionText.trim().toLowerCase();
-  const c = (correctAnswer || "").trim().toLowerCase();
+  const oLetter = extractOptionLetter(optionText);
+  const cLetter = extractOptionLetter(correctAnswer);
+  if (oLetter && cLetter) return oLetter === cLetter;
+
+  const o = String(optionText || "").trim().toLowerCase();
+  const c = String(correctAnswer || "").trim().toLowerCase();
   if (!o || !c) return false;
-  return o.includes(c) || c.includes(o);
+  return o === c || o.includes(c) || c.includes(o);
 }
 
-// Builds today's pool and freezes a revision set of `practiceSize` cards, oldest-due-first.
-function buildPracticeDeck() {
-  const now = Date.now();
-  // Rule 5: due mastered cards (monthly check-in) come back into the pool too.
-  const due = mistakes.filter(m => (m.nextDueAt ?? 0) <= now);
-  const pool = due.length ? due : mistakes.filter(m => !m.mastered);
-  const base = pool.length ? pool : mistakes;
-  return buildRevisionSet(base, practiceSize);
-}
-
+// Dispatches the Revise tab to whichever of the three screens applies:
+// a Test History review, the pre-test setup screen, or an active/finished deck.
 function renderPractice(el) {
+  if (testReviewBatchId) { renderTestReview(el); return; }
+  if (practiceSetupMode) { renderPracticeSetup(el); return; }
+  renderPracticeDeck(el);
+}
+
+// ===== PRACTICE SETUP SCREEN =====
+function renderPracticeSetup(el) {
+  const folderTree = computeFolderTree();
+  const count = resolvedPracticeCount();
+  const scopedCount = resolveFolderScopedPool().length;
+
+  el.innerHTML = `
+    <div class="space-y-6">
+      <div class="panel setup-panel">
+        <h2 style="font-size:1.125rem; font-weight:600;">Set up your revise session</h2>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">${scopedCount} card${scopedCount === 1 ? "" : "s"} in scope right now.</p>
+
+        <div class="setup-block">
+          <span class="label-mono setup-block-label">How many</span>
+          <div class="setup-count-row">
+            ${PRACTICE_COUNT_PRESETS.map(n => `<button class="chip ${practiceSetupCount === n ? "active-status" : ""}" onclick="setPracticeSetupCount(${n})">${n}</button>`).join("")}
+            <input type="text" inputmode="numeric" class="input input-sm setup-count-custom" placeholder="Custom" value="${practiceSetupCount === "custom" ? escHtmlAttr(practiceSetupCustomCount) : ""}" oninput="setPracticeSetupCustomCount(this.value)" onclick="this.select()">
+          </div>
+          ${scopedCount > 0 && count > scopedCount ? `<p class="setup-note">Only ${scopedCount} in scope, so mastered cards will top up the rest — most-due-for-a-refresher first.</p>` : ""}
+        </div>
+
+        <div class="setup-block">
+          <span class="label-mono setup-block-label">From</span>
+          <div class="folder-picker">
+            <button type="button" class="chip ${!practiceSetupFolders.length ? "active-status" : ""}" onclick="clearFolderSelection()">Everything</button>
+            ${folderTree.map(s => {
+              const isSubjectSelected = practiceSetupFolders.includes(s.subject);
+              const isExpanded = practiceSetupFoldersExpanded.includes(s.subject);
+              const chapters = [...s.chapters.entries()];
+              const anyChapterSelected = chapters.some(([c]) => practiceSetupFolders.includes(`${s.subject} > ${c}`));
+              return `
+                <div class="folder-picker-row">
+                  <button type="button" class="chip ${isSubjectSelected ? "active-status" : anyChapterSelected ? "chip-partial" : ""}" onclick="toggleFolderSubject('${escJsStr(s.subject)}')">${s.subject} <span class="label-mono">${s.count}</span></button>
+                  ${chapters.length > 1 ? `
+                    <button type="button" class="folder-expand-btn" onclick="toggleFolderExpanded('${escJsStr(s.subject)}')" title="Show chapters">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${isExpanded ? 180 : 0}deg); transition: transform 0.15s;"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                  ` : ""}
+                  ${isExpanded ? `
+                    <div class="folder-picker-chapters">
+                      ${chapters.map(([c, n]) => `<button type="button" class="chip chip-sm ${practiceSetupFolders.includes(`${s.subject} > ${c}`) ? "active-status" : ""}" onclick="toggleFolderChapter('${escJsStr(s.subject)}', '${escJsStr(c)}')">${c} <span class="label-mono">${n}</span></button>`).join("")}
+                    </div>
+                  ` : ""}
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+
+        <div class="setup-block">
+          <span class="label-mono setup-block-label">Order</span>
+          <button type="button" class="toggle-row" onclick="togglePracticeSetupRandom()">
+            <span class="toggle-switch ${practiceSetupRandom ? "on" : ""}"><span class="toggle-knob"></span></span>
+            <span>Random${practiceSetupRandom ? "" : " (off — strict due-priority order)"}</span>
+          </button>
+        </div>
+
+        <div class="setup-block">
+          <span class="label-mono setup-block-label">Difficulty</span>
+          <div class="difficulty-track" id="difficultyTrack" onpointerdown="startDifficultyDrag(event)" ontouchstart="startDifficultyDrag(event)">
+            <div class="difficulty-track-line"></div>
+            ${DIFFICULTY_LEVELS.map(d => `
+              <div class="difficulty-checkpoint" data-level="${d.level}" style="left:${difficultyPercentForLevel(d.level)}%">
+                <div class="difficulty-checkpoint-icon">${difficultyIconSVG(d.level)}</div>
+                <span class="difficulty-checkpoint-label">${d.label}</span>
+              </div>
+            `).join("")}
+            <div class="difficulty-handle" id="difficultyHandle" style="left:${difficultyPercentForLevel(practiceSetupDifficulty)}%"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary setup-start-btn" onclick="startPracticeSession()">
+          Start test
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <div class="panel settings-panel">
+        <h2 class="settings-panel-title">Test History</h2>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Every batch of mistakes logged in one go counts as a test. Click one to review it. "Mastered" is derived automatically from how you've actually done revising each one.</p>
+        <div class="test-history-scroll" style="margin-top:1.25rem;">
+          <table class="test-history-table responsive-table">
+            <thead>
+              <tr>
+                <th style="width:3.5rem;">Sr No.</th>
+                <th>Test Name</th>
+                <th>Topic to Focus On</th>
+                <th style="width:8.5rem;">Mastered</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderTestHistoryRows()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Vanilla-style line icons matching the rest of the app — a flame for "no
+// mercy", a target for "balanced", a chocolate bar for "take it easy".
+function difficultyIconSVG(level) {
+  if (level === 0) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
+  }
+  if (level === 1) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M9 6v12"/><path d="M15 6v12"/><path d="M3 12h18"/></svg>`;
+}
+
+// ===== TEST REVIEW SCREEN =====
+// Opened from a Test History row — a static, already-revealed look back at
+// everything logged in that batch, not a live graded session. Star/comment
+// still work the same as anywhere else in the app.
+function openTestReview(batchId) {
+  testReviewBatchId = batchId;
+  renderPreserveScroll();
+}
+
+function closeTestReview() {
+  testReviewBatchId = null;
+  renderPreserveScroll();
+}
+
+function renderTestReview(el) {
+  const history = computeTestHistory();
+  const test = history.find(t => t.batchId === testReviewBatchId);
+  if (!test) {
+    testReviewBatchId = null;
+    renderPracticeSetup(el);
+    return;
+  }
+  const testName = `Test ${test.testNumber} — ${test.topTopics.join(", ") || "General"}`;
+
+  el.innerHTML = `
+    <div class="space-y-6">
+      <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+        <div>
+          <button class="btn btn-ghost btn-sm" onclick="closeTestReview()" style="margin-bottom:0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to tests
+          </button>
+          <h2 style="font-size:1.125rem; font-weight:600;">${testName}</h2>
+          <p style="margin-top:0.125rem; font-size:0.8125rem; color:var(--muted-foreground);">${test.items.length} question${test.items.length === 1 ? "" : "s"} · reviewing as logged, not a live test</p>
+        </div>
+      </div>
+
+      ${test.items.map(m => {
+        const { comments, body } = splitExplanationComments(m.explanation);
+        return `
+        <div class="panel flashcard">
+          <div class="flashcard-header">
+            <span class="label-mono">${m.subject} / ${m.chapter} / ${m.topic}</span>
+            <div style="display:flex; align-items:center; gap:0.25rem;">
+              <button class="card-action-btn star-btn ${m.starred ? "starred" : ""}" onclick="toggleStar('${m.id}')" title="${m.starred ? "Unstar" : "Star"}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="${m.starred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </button>
+              <button class="card-action-btn" onclick="openCommentBox('${m.id}')" title="Add a comment point">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              ${categoryTagHTML(m.category)}
+            </div>
+          </div>
+          <div class="flashcard-body">
+            <h2 class="flashcard-question">${m.question}</h2>
+            ${m.options ? `
+              <div class="options-grid">
+                ${splitOptions(m).map(o => {
+                  const correct = isOptionCorrect(o, m.correctAnswer);
+                  const wasChosenWrong = !correct && m.wrongAnswer && isOptionCorrect(o, m.wrongAnswer);
+                  let cls = "option-item disabled";
+                  if (correct) cls += " selected-correct";
+                  else if (wasChosenWrong) cls += " selected-wrong";
+                  return `<button class="${cls}" disabled>${o}</button>`;
+                }).join("")}
+              </div>
+            ` : `
+              <div class="reveal-answers" style="margin-top:1rem;">
+                <div class="reveal-wrong">
+                  <p class="label-mono sloppy-text">You said</p>
+                  <p style="margin-top:0.25rem; font-weight:500; color:var(--sloppy);">${m.wrongAnswer || "—"}</p>
+                </div>
+                <div class="reveal-correct">
+                  <p class="label-mono" style="color:var(--good);">Correct</p>
+                  <p style="margin-top:0.25rem; font-weight:500; color:var(--good);">${m.correctAnswer || "—"}</p>
+                </div>
+              </div>
+            `}
+            <div class="reveal-section" style="margin-top:1rem;">
+              ${(comments.length || commentingId === m.id) ? `
+                <div class="comment-section">
+                  ${comments.map(c => `<p class="explanation-comment">${c}</p>`).join("")}
+                  ${commentingId === m.id ? `
+                    <div class="comment-input-row">
+                      <input type="text" class="input input-sm" id="commentInput-${m.id}" placeholder="Add a point… Enter to add, Esc to close" onkeydown="handleCommentKeydown(event, '${m.id}')">
+                      <button class="btn btn-ghost btn-sm" onclick="closeCommentBox()">Done</button>
+                    </div>
+                  ` : ""}
+                </div>
+              ` : ""}
+              ${body ? `<p class="reveal-explanation" style="margin-top:${(comments.length || commentingId === m.id) ? "0.5rem" : "0"};">${body}</p>` : ""}
+            </div>
+          </div>
+        </div>
+      `;
+      }).join("")}
+    </div>
+  `;
+}
+
+// ===== ACTIVE / FINISHED DECK =====
+function renderPracticeDeck(el) {
   const deck = practiceDeck;
   const done = deck.length > 0 && practiceIndex >= deck.length;
   const current = deck[practiceIndex];
@@ -4810,9 +5523,10 @@ function renderPractice(el) {
   el.innerHTML = `
     <div class="space-y-6">
       <div class="panel practice-toolbar">
-        <div class="practice-modes">
-          ${[10, 20, 30].map(n => `<button class="chip ${practiceSize === n ? "active-status" : ""}" onclick="changePracticeSize(${n})">${n} cards</button>`).join("")}
-        </div>
+        <button class="btn btn-ghost btn-sm" onclick="backToPracticeSetup()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Setup
+        </button>
         <div class="practice-scores">
           <span class="label-mono">${practiceScore.right} right · ${practiceScore.wrong} wrong</span>
           <span class="label-mono" style="color:var(--muted-foreground);">${practiceIndex}/${deck.length}</span>
@@ -4829,7 +5543,7 @@ function renderPractice(el) {
           <p class="label-mono">Revision set complete</p>
           <p class="drill-pct">${Math.round((practiceScore.right / Math.max(1, practiceScore.right + practiceScore.wrong)) * 100)}%</p>
           <p style="margin-top:0.5rem; font-size:0.875rem; color:var(--muted-foreground);">${practiceScore.right} correct out of ${practiceScore.right + practiceScore.wrong}. No hidden scheduling — the queue is just the rule you can see on the card.</p>
-          <button class="btn btn-primary" style="margin-top:1.5rem;" onclick="resetPractice()">Start another set</button>
+          <button class="btn btn-primary" style="margin-top:1.5rem;" onclick="backToPracticeSetup()">Start another set</button>
         </div>
       ` : current ? `
         <div class="panel flashcard">
@@ -5005,39 +5719,6 @@ function nextCard() {
   commentingId = null;
   practiceSkipped = false;
   practiceIndex++;
-  renderPreserveScroll();
-}
-
-// Switching MCQ count mid-test discards the current session (already-graded cards
-// stay saved via gradeMistake; only the unfinished remainder is dropped). Only warn
-// when a test is actually in progress — not on a fresh/untouched or finished deck.
-function changePracticeSize(n) {
-  if (n === practiceSize) return;
-  const testInProgress = practiceDeck.length > 0 && practiceIndex > 0 && practiceIndex < practiceDeck.length;
-  if (testInProgress) {
-    const remaining = practiceDeck.length - practiceIndex;
-    const ok = confirm(
-      `Start a new test with ${n} MCQs?\n\nYour current test will be submitted in its current state ` +
-      `(${practiceScore.right} right · ${practiceScore.wrong} wrong, ${remaining} card${remaining === 1 ? "" : "s"} left unanswered).`
-    );
-    if (!ok) return;
-  }
-  practiceSize = n;
-  resetPractice();
-}
-window.changePracticeSize = changePracticeSize;
-
-function resetPractice() {
-  practiceDeck = buildPracticeDeck();
-  practiceIndex = 0;
-  practiceRevealed = false;
-  practiceScore = { right: 0, wrong: 0 };
-  practiceSelectedOption = null;
-  practiceAnswered = false;
-  practiceLastCorrect = null;
-  practiceRepeatedMistake = false;
-  commentingId = null;
-  practiceSkipped = false;
   renderPreserveScroll();
 }
 
