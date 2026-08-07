@@ -1,0 +1,8 @@
+# Real Supabase keys — never commit this. Copy config.example.js to
+# config.js and fill in your own project's values instead.
+config.js
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.swp
