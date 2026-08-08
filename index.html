@@ -16,6 +16,21 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Caveat:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>
+// Applied as early as possible (before the stylesheet/body render) to avoid
+// a flash of the wrong theme. Reads localStorage directly rather than
+// waiting for the main app script's settings-loading logic further down.
+(function () {
+  try {
+    var raw = localStorage.getItem("mistex.settings.v2");
+    var theme = raw ? (JSON.parse(raw).theme || "system") : "system";
+    var resolved = theme === "system"
+      ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : theme;
+    if (resolved === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  } catch (e) { /* localStorage unavailable or malformed — just fall back to light */ }
+})();
+</script>
+<script>
 /*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
@@ -96,6 +111,62 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --shadow-lift: 0 1px 0 0 var(--border), 0 12px 30px -18px oklch(0.2 0.05 265 / 0.4);
+}
+
+/* Independent dark palette — the light-theme oklch() vars aren't reused here so
+   every surface, text, and category color gets a value actually tuned for
+   contrast on a dark background, not just an auto-inverted lightness. */
+:root[data-theme="dark"] {
+  --background: oklch(0.16 0.015 265);
+  --foreground: oklch(0.92 0.006 260);
+  --paper: oklch(0.205 0.014 265);
+  --ink: oklch(0.94 0.008 260);
+  --card: oklch(0.205 0.014 265);
+  --card-foreground: oklch(0.92 0.006 260);
+  --popover: oklch(0.22 0.014 265);
+  --popover-foreground: oklch(0.92 0.006 260);
+  --primary: oklch(0.72 0.14 268);
+  --primary-foreground: oklch(0.14 0.02 265);
+  --signal: oklch(0.72 0.14 268);
+  --signal-soft: oklch(0.28 0.06 268);
+  --secondary: oklch(0.27 0.012 260);
+  --secondary-foreground: oklch(0.88 0.006 260);
+  --muted: oklch(0.245 0.012 260);
+  --muted-foreground: oklch(0.63 0.015 265);
+  --accent: oklch(0.29 0.06 268);
+  --accent-foreground: oklch(0.82 0.05 268);
+  --destructive: oklch(0.68 0.17 26);
+  --destructive-foreground: oklch(0.14 0.02 265);
+  --border: oklch(0.32 0.015 262);
+  --input: oklch(0.32 0.015 262);
+  --ring: oklch(0.72 0.14 268);
+  --stretch: oklch(0.72 0.13 245);
+  --stretch-soft: oklch(0.27 0.05 245);
+  --aha: oklch(0.75 0.12 78);
+  --aha-soft: oklch(0.29 0.06 88);
+  --sloppy: oklch(0.72 0.16 25);
+  --sloppy-soft: oklch(0.29 0.06 30);
+  --blur: oklch(0.68 0.015 265);
+  --blur-soft: oklch(0.27 0.01 265);
+  --good: oklch(0.7 0.13 155);
+  --good-soft: oklch(0.27 0.06 155);
+  --heat-1: oklch(0.28 0.05 155);
+  --heat-2: oklch(0.38 0.09 155);
+  --heat-3: oklch(0.5 0.13 155);
+  --heat-4: oklch(0.66 0.16 155);
+  --star: oklch(0.78 0.13 85);
+  --star-soft: oklch(0.27 0.02 260);
+  --comment: oklch(0.72 0.11 95);
+  --comment-soft: oklch(0.27 0.07 97);
+  --shadow-lift: 0 1px 0 0 var(--border), 0 12px 30px -18px oklch(0 0 0 / 0.6);
+}
+:root[data-theme="dark"] body {
+  background-image:
+    linear-gradient(to right, oklch(0.72 0.14 268 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.72 0.14 268 / 0.06) 1px, transparent 1px);
+}
+:root[data-theme="dark"] .header {
+  background: oklch(0.16 0.015 265 / 0.85);
 }
 
 * {
@@ -2636,6 +2707,48 @@ function buildConfiguredPracticeDeck() {
   return selected;
 }
 
+const PRACTICE_SETUP_KEY = "mistex.practiceSetupPrefs.v1";
+
+// Remembers your last revise-session setup so the screen doesn't reset to
+// generic defaults every single time — saved right when a session actually
+// starts (captures what you really used, not every idle click while fiddling).
+function savePracticeSetupPrefs() {
+  try {
+    localStorage.setItem(PRACTICE_SETUP_KEY, JSON.stringify({
+      count: practiceSetupCount,
+      customCount: practiceSetupCustomCount,
+      folders: practiceSetupFolders,
+      random: practiceSetupRandom,
+      difficulty: practiceSetupDifficulty,
+      focus: practiceSetupFocus,
+    }));
+  } catch { /* localStorage unavailable/full — not worth surfacing an error for a preference */ }
+}
+
+function loadPracticeSetupPrefs() {
+  try {
+    const raw = localStorage.getItem(PRACTICE_SETUP_KEY);
+    if (!raw) return;
+    const prefs = JSON.parse(raw);
+    if (prefs.count !== undefined) practiceSetupCount = prefs.count;
+    if (prefs.customCount !== undefined) practiceSetupCustomCount = prefs.customCount;
+    if (Array.isArray(prefs.folders)) {
+      // Drop folder keys for subjects/chapters that no longer exist (renamed
+      // or all their mistakes deleted since last time) rather than silently
+      // scoping to nothing.
+      const validKeys = new Set();
+      computeFolderTree().forEach(s => {
+        validKeys.add(s.subject);
+        [...s.chapters.keys()].forEach(c => validKeys.add(`${s.subject} > ${c}`));
+      });
+      practiceSetupFolders = prefs.folders.filter(k => validKeys.has(k));
+    }
+    if (typeof prefs.random === "boolean") practiceSetupRandom = prefs.random;
+    if ([0, 1, 2].includes(prefs.difficulty)) practiceSetupDifficulty = prefs.difficulty;
+    if (["all", "leeches", "starred"].includes(prefs.focus)) practiceSetupFocus = prefs.focus;
+  } catch { /* malformed saved prefs — just keep the hardcoded defaults */ }
+}
+
 function startPracticeSession() {
   practiceDeck = buildConfiguredPracticeDeck();
   practiceIndex = 0;
@@ -2648,6 +2761,7 @@ function startPracticeSession() {
   commentingId = null;
   practiceSkipped = false;
   practiceSetupMode = false;
+  savePracticeSetupPrefs();
   renderPreserveScroll();
 }
 
@@ -2877,6 +2991,7 @@ Output only the Markdown blocks.`;
 
 const STORAGE_KEY = "mistex.mistakes.v2";
 const SETTINGS_KEY = "mistex.settings.v2";
+const LAST_SYNCED_USER_KEY = "mistex.lastSyncedUserId"; // shared-device leak guard — see pullFromCloud()
 
 // ===== CLOUD SYNC (Supabase + Google auth) =====
 // Keys live in config.js (git-ignored, never committed) instead of here, so
@@ -3042,6 +3157,57 @@ async function pushToCloud() {
   renderSettingsIfVisible();
 }
 
+// ===== CLEAR DATA =====
+// "This device" wipes local storage only — if signed in, the cloud copy is
+// untouched and the next sync would just re-populate this device from it
+// (not useful for actually deleting data, but harmless as a local reset).
+// "Everywhere" additionally deletes the cloud rows, for when you actually
+// want the data gone, not just re-downloadable.
+async function clearLocalData(preserveTheme) {
+  const theme = preserveTheme ? settings.theme : "system";
+  mistakes = [];
+  settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme };
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(SETTINGS_KEY);
+  localStorage.removeItem(LAST_SYNCED_USER_KEY);
+  save();
+  applyTheme();
+}
+
+async function clearAllDataLocalOnly() {
+  const ok = await showConfirmDialog(
+    "Clear this device?",
+    `This deletes all ${mistakes.length} mistakes and settings from this browser only. ` +
+    (cloudUser ? "Your cloud account is untouched — hit \"Sync now\" anytime to restore it." : "This can't be undone."),
+    { okLabel: "Clear device", destructive: true }
+  );
+  if (!ok) return;
+  await clearLocalData(true);
+  showToast("This device's data has been cleared.");
+  render();
+}
+
+async function clearAllDataEverywhere() {
+  if (!sb || !cloudUser) return;
+  const ok = await showConfirmDialog(
+    "Delete everything, including the cloud?",
+    `This permanently deletes all ${mistakes.length} mistakes from this device AND from your account (${cloudUser.email}). This cannot be undone.`,
+    { okLabel: "Delete everything", destructive: true }
+  );
+  if (!ok) return;
+  try {
+    const { error: mErr } = await sb.from("mistakes").delete().eq("user_id", cloudUser.id);
+    if (mErr) throw mErr;
+    const { error: sErr } = await sb.from("user_settings").delete().eq("user_id", cloudUser.id);
+    if (sErr) throw sErr;
+    await clearLocalData(true);
+    showToast("Everything has been deleted, including your cloud account's data.");
+    render();
+  } catch (err) {
+    showToast("Couldn't delete cloud data: " + (err.message || err), "error");
+  }
+}
+
 // Pulls everything for the signed-in user and merges with whatever's
 // already local. Deliberately simple last-write-wins merge by id, keyed on
 // each mistake's own `lastReviewed`/`createdAt` — good enough for a single
@@ -3052,6 +3218,25 @@ async function pullFromCloud() {
   cloudSyncError = null;
   renderSettingsIfVisible();
   try {
+    // Guard against a shared/public device: if this browser last synced for
+    // a *different* account, blindly merging would push that other
+    // person's local leftovers into this account's cloud data. Ask first,
+    // rather than silently mixing two people's mistakes together.
+    const lastSyncedUserId = localStorage.getItem(LAST_SYNCED_USER_KEY);
+    if (lastSyncedUserId && lastSyncedUserId !== cloudUser.id && mistakes.length) {
+      const keepLocal = await showConfirmDialog(
+        "Different account signed in",
+        `This device has ${mistakes.length} mistake${mistakes.length === 1 ? "" : "s"} saved for a different account. ` +
+        `Replace them with ${cloudUser.email}'s data (recommended for a shared device), or keep both?`,
+        { okLabel: "Replace", cancelLabel: "Keep both" }
+      );
+      if (keepLocal) {
+        mistakes = [];
+      }
+      // "Keep both" falls through to the normal merge below — only use this
+      // if you're sure both sets of data genuinely belong to you.
+    }
+
     const { data: remoteMistakeRows, error: mErr } = await sb
       .from("mistakes")
       .select("payload")
@@ -3081,6 +3266,7 @@ async function pullFromCloud() {
       }
       save();
     }
+    localStorage.setItem(LAST_SYNCED_USER_KEY, cloudUser.id);
     cloudSyncState = "idle";
   } catch (err) {
     cloudSyncState = "error";
@@ -3149,7 +3335,7 @@ const MASTERY_STREAK = 4;             // rule 4: graduate to "mastered" after 4 
 const MASTERY_CHECKIN_DAYS = 30;      // rule 5: monthly check-in for mastered cards
 
 let mistakes = [];
-let settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null };
+let settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system" };
 let currentTab = "dashboard";
 let editingId = null;
 let hydrated = false;
@@ -3315,6 +3501,38 @@ function escJsStr(s) {
   return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// ===== THEME =====
+// "system" follows the OS/browser preference live; "light"/"dark" are
+// explicit overrides. The actual light/dark CSS lives in :root[data-theme]
+// blocks — this just toggles the attribute and keeps it applied when the OS
+// preference changes mid-session while set to "system".
+function resolveTheme(pref) {
+  if (pref === "dark" || pref === "light") return pref;
+  return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+}
+
+function applyTheme() {
+  const resolved = resolveTheme(settings.theme);
+  if (resolved === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
+}
+
+function setTheme(pref) {
+  settings.theme = pref;
+  save();
+  applyTheme();
+  renderPreserveScroll();
+}
+
+let _themeMediaQuery = null;
+function watchSystemTheme() {
+  if (!window.matchMedia) return;
+  _themeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  _themeMediaQuery.addEventListener("change", () => {
+    if (settings.theme === "system") applyTheme();
+  });
+}
+
 function init() {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
@@ -3350,7 +3568,7 @@ function init() {
     try {
       const parsed = JSON.parse(storedSettings);
       settings = {
-        ...{ weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null },
+        ...{ weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system" },
         ...parsed,
         logSectionsCollapsed: { ai: false, manual: true, ...(parsed.logSectionsCollapsed || {}) },
       };
@@ -3362,6 +3580,9 @@ function init() {
     // used (Test History is derived automatically now), just cleared out.
     localStorage.removeItem("mistex.testMarks.v1");
   }
+  applyTheme();
+  watchSystemTheme();
+  loadPracticeSetupPrefs();
   hydrated = true;
   render();
   if (settings.showRevisionNote !== false) {
@@ -5147,6 +5368,17 @@ function renderSettings(el) {
       </section>
 
       <section class="panel settings-panel">
+        <h2 class="settings-panel-title">Appearance</h2>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Theme, and re-showing onboarding tips.</p>
+        <div style="display:flex; gap:0.5rem; margin-top:1.25rem; flex-wrap:wrap;">
+          ${[["system", "Auto"], ["light", "Light"], ["dark", "Dark"]].map(([val, label]) =>
+            `<button class="chip ${(settings.theme || "system") === val ? "active-status" : ""}" onclick="setTheme('${val}')">${label}</button>`
+          ).join("")}
+        </div>
+        <button class="btn btn-sm" style="margin-top:1rem;" onclick="showTipsAgain()">Show tips again</button>
+      </section>
+
+      <section class="panel settings-panel">
         <h2 class="settings-panel-title">Data</h2>
         <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Export a backup of everything logged in Mistex, or restore from one.</p>
         <div style="display:flex; gap:0.5rem; margin-top:1.25rem; flex-wrap:wrap;">
@@ -5161,6 +5393,15 @@ function renderSettings(el) {
           <input type="file" id="importFileInput" accept=".zip,.json" style="display:none;" onchange="importData(event)">
         </div>
         <p id="dataIOStatus" style="margin-top:0.75rem; font-size:0.75rem; color:var(--muted-foreground);"></p>
+      </section>
+
+      <section class="panel settings-panel danger-zone">
+        <h2 class="settings-panel-title" style="color:var(--sloppy);">Danger Zone</h2>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Permanently remove data. Export a backup first if you're not sure.</p>
+        <div style="display:flex; gap:0.5rem; margin-top:1.25rem; flex-wrap:wrap;">
+          <button class="btn btn-destructive" onclick="clearAllDataLocalOnly()">Clear this device</button>
+          ${cloudUser ? `<button class="btn btn-destructive" onclick="clearAllDataEverywhere()">Delete everything (device + cloud)</button>` : ""}
+        </div>
       </section>
     </div>`;
 }
@@ -5269,6 +5510,13 @@ function dismissRevisionNote() {
 
 function closeRevisionNoteOutside(e) {
   if (e.target === document.getElementById("revisionNoteDialog")) dismissRevisionNote();
+}
+
+function showTipsAgain() {
+  settings.showRevisionNote = true;
+  save();
+  openRevisionNote();
+  showToast("Tips re-enabled.");
 }
 
 // ===== GENERIC CONFIRM DIALOG =====
