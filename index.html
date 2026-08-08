@@ -2552,6 +2552,21 @@ function resolveFolderScopedPool() {
   });
 }
 
+// Folder scope and Focus (leeches/starred) are independent constraints that
+// both apply together — e.g. "leeches, but only in Pathology" is a
+// perfectly reasonable thing to want.
+function resolveScopedPool() {
+  const folderScoped = resolveFolderScopedPool();
+  if (practiceSetupFocus === "leeches") return folderScoped.filter(isLeech);
+  if (practiceSetupFocus === "starred") return folderScoped.filter(m => m.starred);
+  return folderScoped;
+}
+
+function setPracticeSetupFocus(focus) {
+  practiceSetupFocus = focus;
+  renderPreserveScroll();
+}
+
 // Short label for the "From" button on the setup screen.
 function folderSelectionSummary() {
   const n = practiceSetupFolders.length;
@@ -2575,13 +2590,16 @@ function resolvedPracticeCount() {
 //   - difficulty (see comment above DIFFICULTY_LEVELS below)
 //   - random on/off
 function buildConfiguredPracticeDeck() {
-  const scoped = resolveFolderScopedPool();
+  const scoped = resolveScopedPool();
   const count = resolvedPracticeCount();
   const unmastered = scoped.filter(m => !m.mastered);
   const masteredPool = scoped.filter(m => m.mastered);
 
   let basePool;
-  if (unmastered.length >= count || !masteredPool.length) {
+  // Skip the mastered top-up when a specific Focus is active — "leeches
+  // only" or "starred only" is an intentionally narrow request, and
+  // padding it out with unrelated mastered cards would defeat the point.
+  if (practiceSetupFocus !== "all" || unmastered.length >= count || !masteredPool.length) {
     basePool = unmastered.length ? unmastered : scoped;
   } else {
     // Not enough unmastered cards to fill the requested count — top up from
@@ -2603,8 +2621,7 @@ function buildConfiguredPracticeDeck() {
   let ranked;
   if (practiceSetupDifficulty === 0) {
     ranked = [...basePool].sort((a, b) => {
-      const aLeech = (a.repeatedWrongCount || 0) >= LEECH_REPEAT_THRESHOLD || ((a.attempts || 0) >= LEECH_ATTEMPT_THRESHOLD && (a.correctStreak || 0) === 0);
-      const bLeech = (b.repeatedWrongCount || 0) >= LEECH_REPEAT_THRESHOLD || ((b.attempts || 0) >= LEECH_ATTEMPT_THRESHOLD && (b.correctStreak || 0) === 0);
+      const aLeech = isLeech(a), bLeech = isLeech(b);
       if (aLeech !== bLeech) return aLeech ? -1 : 1;
       return dueOrderCompare(a, b);
     });
@@ -3159,6 +3176,7 @@ let practiceSetupFolders = [];         // selected "Subject" or "Subject > Chapt
 let practiceSetupFoldersExpanded = []; // which subjects are expanded in the folder picker
 let practiceSetupRandom = true;
 let practiceSetupDifficulty = 1;       // 0 = Real Stuff, 1 = Normal, 2 = Cake
+let practiceSetupFocus = "all";        // "all" | "leeches" | "starred" — an extra filter on top of folder scope
 let folderPickerOpen = false;          // the "Customize" modal
 let folderPickerSearch = "";
 const PRACTICE_COUNT_PRESETS = [10, 20, 30];
@@ -3510,12 +3528,19 @@ function computeSubjectMastery() {
 // than once, or four-plus attempts with no correct streak ever building.
 const LEECH_REPEAT_THRESHOLD = 2;
 const LEECH_ATTEMPT_THRESHOLD = 4;
+// The actual "is this a leech" test, kept separate from getLeeches() so it
+// can be reused for filtering (which needs every match) as well as for the
+// dashboard's top-5 display (which doesn't).
+function isLeech(m) {
+  return !m.mastered && (
+    (m.repeatedWrongCount || 0) >= LEECH_REPEAT_THRESHOLD ||
+    ((m.attempts || 0) >= LEECH_ATTEMPT_THRESHOLD && (m.correctStreak || 0) === 0)
+  );
+}
+
 function getLeeches() {
   return mistakes
-    .filter(m => !m.mastered && (
-      (m.repeatedWrongCount || 0) >= LEECH_REPEAT_THRESHOLD ||
-      ((m.attempts || 0) >= LEECH_ATTEMPT_THRESHOLD && (m.correctStreak || 0) === 0)
-    ))
+    .filter(isLeech)
     .sort((a, b) => (b.repeatedWrongCount || 0) - (a.repeatedWrongCount || 0) || (b.attempts || 0) - (a.attempts || 0))
     .slice(0, 5);
 }
@@ -5401,13 +5426,21 @@ function renderPractice(el) {
 // ===== PRACTICE SETUP SCREEN =====
 function renderPracticeSetup(el) {
   const count = resolvedPracticeCount();
-  const scopedCount = resolveFolderScopedPool().length;
+  const folderScoped = resolveFolderScopedPool();
+  const scopedPool = resolveScopedPool();
+  const scopedCount = scopedPool.length;
+  const now = Date.now();
+  const dueCount = scopedPool.filter(m => (m.nextDueAt ?? 0) <= now).length;
+  const leechCount = folderScoped.filter(isLeech).length;
+  const starredCount = folderScoped.filter(m => m.starred).length;
 
   el.innerHTML = `
     <div class="space-y-6">
       <div class="panel setup-panel">
         <h2 style="font-size:1.125rem; font-weight:600;">Set up your revise session</h2>
-        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">${scopedCount} card${scopedCount === 1 ? "" : "s"} in scope right now.</p>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">
+          ${scopedCount} card${scopedCount === 1 ? "" : "s"} in scope — ${dueCount} due right now, ${Math.max(0, scopedCount - dueCount)} not due yet.
+        </p>
 
         <div class="setup-block">
           <span class="label-mono setup-block-label">How many</span>
@@ -5415,7 +5448,8 @@ function renderPracticeSetup(el) {
             ${PRACTICE_COUNT_PRESETS.map(n => `<button class="chip ${practiceSetupCount === n ? "active-status" : ""}" onclick="setPracticeSetupCount(${n})">${n}</button>`).join("")}
             <input type="text" inputmode="numeric" class="input input-sm setup-count-custom" placeholder="Custom" value="${practiceSetupCount === "custom" ? escHtmlAttr(practiceSetupCustomCount) : ""}" oninput="setPracticeSetupCustomCount(this.value)" onclick="this.select()">
           </div>
-          ${scopedCount > 0 && count > scopedCount ? `<p class="setup-note">Only ${scopedCount} in scope, so mastered cards will top up the rest — most-due-for-a-refresher first.</p>` : ""}
+          ${practiceSetupFocus === "all" && scopedCount > 0 && count > scopedCount ? `<p class="setup-note">Only ${scopedCount} in scope, so mastered cards will top up the rest — most-due-for-a-refresher first.</p>` : ""}
+          ${practiceSetupFocus !== "all" && count > scopedCount ? `<p class="setup-note">Only ${scopedCount} match this focus — the session will be shorter than ${count}.</p>` : ""}
         </div>
 
         <div class="setup-block">
@@ -5425,6 +5459,16 @@ function renderPracticeSetup(el) {
             <span>${folderSelectionSummary()}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto; color:var(--muted-foreground);"><path d="m9 18 6-6-6-6"/></svg>
           </button>
+        </div>
+
+        <div class="setup-block">
+          <span class="label-mono setup-block-label">Focus</span>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="chip ${practiceSetupFocus === "all" ? "active-status" : ""}" onclick="setPracticeSetupFocus('all')">All</button>
+            <button type="button" class="chip ${practiceSetupFocus === "leeches" ? "active-status" : ""}" onclick="setPracticeSetupFocus('leeches')">Leeches <span class="label-mono">${leechCount}</span></button>
+            <button type="button" class="chip ${practiceSetupFocus === "starred" ? "active-status" : ""}" onclick="setPracticeSetupFocus('starred')">Starred <span class="label-mono">${starredCount}</span></button>
+          </div>
+          ${practiceSetupFocus === "leeches" ? `<p class="setup-note">Cards that keep coming back wrong — the same wrong answer picked more than once, or 4+ attempts with no correct streak.</p>` : ""}
         </div>
 
         <div class="setup-block">
