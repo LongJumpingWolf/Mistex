@@ -2587,17 +2587,6 @@ img, svg, canvas, table { max-width: 100%; }
   </footer>
 </div>
 
-<!-- Revision Note Dialog -->
-<div id="revisionNoteDialog" class="dialog-overlay" style="display:none;" onclick="closeRevisionNoteOutside(event)">
-  <div class="dialog-content" onclick="event.stopPropagation()">
-    <h2 class="dialog-title">A simpler revision rule</h2>
-    <p style="margin-bottom:1rem; color:var(--muted-foreground);">We simplified how revision works — no more hidden scheduling. Cards you get wrong now show up again sooner, cards you get right move to the back of the line. That’s it.</p>
-    <div class="dialog-footer">
-      <button class="btn btn-primary" onclick="dismissRevisionNote()">Got it</button>
-    </div>
-  </div>
-</div>
-
 <!-- Generic Confirm Dialog — replaces window.confirm() so every prompt in
      the app shares the same look, instead of an unstyled browser box. -->
 <div id="confirmDialog" class="dialog-overlay" style="display:none;" onclick="closeConfirmDialogOutside(event)">
@@ -2918,8 +2907,9 @@ const PRACTICE_SETUP_KEY = "mistex.practiceSetupPrefs.v1";
 function savePracticeSetupPrefs() {
   try {
     localStorage.setItem(PRACTICE_SETUP_KEY, JSON.stringify({
-      count: practiceSetupCount,
-      customCount: practiceSetupCustomCount,
+      // Count is deliberately NOT persisted — always starts back at the
+      // default (20, not "custom") on every fresh load, even mid-session
+      // preferences like folder scope and difficulty carry over.
       folders: practiceSetupFolders,
       random: practiceSetupRandom,
       difficulty: practiceSetupDifficulty,
@@ -2933,8 +2923,6 @@ function loadPracticeSetupPrefs() {
     const raw = localStorage.getItem(PRACTICE_SETUP_KEY);
     if (!raw) return;
     const prefs = JSON.parse(raw);
-    if (prefs.count !== undefined) practiceSetupCount = prefs.count;
-    if (prefs.customCount !== undefined) practiceSetupCustomCount = prefs.customCount;
     if (Array.isArray(prefs.folders)) {
       // Drop folder keys for subjects/chapters that no longer exist (renamed
       // or all their mistakes deleted since last time) rather than silently
@@ -3442,7 +3430,7 @@ async function pushToCloud() {
 async function clearLocalData(preserveTheme) {
   const theme = preserveTheme ? settings.theme : "system";
   mistakes = [];
-  settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme };
+  settings = { weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme };
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(SETTINGS_KEY);
   localStorage.removeItem(LAST_SYNCED_USER_KEY);
@@ -3546,7 +3534,6 @@ async function pullFromCloud() {
   if (!firstPostAuthCheckDone) {
     firstPostAuthCheckDone = true;
     if (shouldAutoStartOnboarding() && !onboardingActive) startOnboarding();
-    else if (settings.showRevisionNote !== false) openRevisionNote();
   }
   render();
 }
@@ -3685,7 +3672,7 @@ const MASTERY_STREAK = 4;             // rule 4: graduate to "mastered" after 4 
 const MASTERY_CHECKIN_DAYS = 30;      // rule 5: monthly check-in for mastered cards
 
 let mistakes = [];
-let settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false };
+let settings = { weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false };
 let currentTab = "dashboard";
 let editingId = null;
 let hydrated = false;
@@ -4054,7 +4041,7 @@ function init() {
     try {
       const parsed = JSON.parse(storedSettings);
       settings = {
-        ...{ weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false },
+        ...{ weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false },
         ...parsed,
         logSectionsCollapsed: { ai: false, manual: true, ...(parsed.logSectionsCollapsed || {}) },
       };
@@ -4075,9 +4062,8 @@ function init() {
   // first completion instead (see firstPostAuthCheckDone below) — auth
   // hasn't resolved yet at this point, so we don't yet know if this is a
   // genuinely new account or an existing one signing in on a new device.
-  if (!cloudConfigured) {
-    if (shouldAutoStartOnboarding()) startOnboarding();
-    else if (settings.showRevisionNote !== false) openRevisionNote();
+  if (!cloudConfigured && shouldAutoStartOnboarding()) {
+    startOnboarding();
   }
   document.addEventListener('keydown', handleKeyboard);
   document.addEventListener('visibilitychange', () => {
@@ -5880,7 +5866,6 @@ function renderSettings(el) {
           ).join("")}
         </div>
         <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
-          <button class="btn btn-sm" onclick="showTipsAgain()">Show tips again</button>
           <button class="btn btn-sm" onclick="switchTab('dashboard'); startOnboarding();">Take the tour</button>
         </div>
       </section>
@@ -6025,27 +6010,6 @@ async function importData(e) {
 }
 
 // ===== EDIT DIALOG =====
-function openRevisionNote() {
-  document.getElementById("revisionNoteDialog").style.display = "flex";
-}
-
-function dismissRevisionNote() {
-  settings.showRevisionNote = false;
-  save();
-  document.getElementById("revisionNoteDialog").style.display = "none";
-}
-
-function closeRevisionNoteOutside(e) {
-  if (e.target === document.getElementById("revisionNoteDialog")) dismissRevisionNote();
-}
-
-function showTipsAgain() {
-  settings.showRevisionNote = true;
-  save();
-  openRevisionNote();
-  showToast("Tips re-enabled.");
-}
-
 // ===== GENERIC CONFIRM DIALOG =====
 // Drop-in replacement for window.confirm() that matches the app's own
 // dialog styling instead of an unstyled browser prompt. Usage:
