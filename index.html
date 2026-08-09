@@ -312,6 +312,16 @@ h1, h2, h3 {
   align-items: center;
   gap: 0.75rem;
 }
+#offlineIndicator{
+  display:flex; align-items:center; gap:5px;
+  padding:5px 10px; border-radius:999px;
+  border:1px solid var(--sloppy-soft);
+  background:var(--sloppy-soft);
+  color:var(--sloppy);
+  font-size:0.7rem; font-weight:600;
+  white-space:nowrap; flex-shrink:0;
+}
+#offlineIndicator svg{ flex-shrink:0; }
 .logo-icon {
   display: block;
   width: 2.25rem;
@@ -2342,6 +2352,10 @@ img, svg, canvas, table { max-width: 100%; }
           <p class="label-mono">Mistake ledger</p>
         </div>
       </div>
+      <div id="offlineIndicator" style="display:none;" title="No internet connection — changes are saved locally and will sync once you're back online">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+        <span>Offline</span>
+      </div>
       <nav class="nav">
         <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
@@ -3096,7 +3110,14 @@ async function signInWithGoogle() {
   const cleanRedirectUrl = window.location.origin + window.location.pathname;
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: cleanRedirectUrl },
+    options: {
+      redirectTo: cleanRedirectUrl,
+      // Without this, signing out only ends Mistex's own session — Google's
+      // separate login cookie is untouched, so signing back in silently
+      // reuses whatever Google account is still active instead of showing
+      // the account picker. This forces the chooser every time.
+      queryParams: { prompt: "select_account" },
+    },
   });
   if (error) {
     authGateError = error.message;
@@ -3289,6 +3310,60 @@ async function pullFromCloud() {
   }
   render();
 }
+
+let lastAutoSyncAt = 0;
+const AUTO_SYNC_MIN_INTERVAL_MS = 15000; // throttle — don't re-sync more than once per 15s even if several triggers fire close together
+
+// Unified entry point for ongoing sync beyond the immediate per-edit push
+// (scheduleCloudPush/pushToCloud) — this is what was actually missing
+// entirely before: nothing kept devices in sync once the app was open,
+// only the initial sign-in pull. Pulls first: pushToCloud() pushes the
+// FULL local mistakes array every time (simpler and lower-risk than
+// threading specific changed-ids through the ~19 places that call
+// save()), so a device that's been offline or just sitting idle a while
+// could otherwise push its own stale copy of something another device
+// already updated, silently overwriting it. Pulling and merging first —
+// pullFromCloud() already does a correct timestamp-based merge, not a
+// blind overwrite — means the push that follows always carries the
+// freshest known state, closing that gap without needing per-item
+// tracking.
+async function doFullSync() {
+  if (!sb || !cloudUser) return;
+  await pullFromCloud();
+  await pushToCloud();
+}
+
+function autoSync() {
+  if (!sb || !cloudUser) return;
+  if (document.visibilityState !== "visible") return; // only meaningful when someone could actually see the result
+  const now = Date.now();
+  if (now - lastAutoSyncAt < AUTO_SYNC_MIN_INTERVAL_MS) return;
+  lastAutoSyncAt = now;
+  doFullSync();
+}
+
+function updateOfflineIndicator() {
+  const el = document.getElementById("offlineIndicator");
+  if (el) el.style.display = navigator.onLine === false ? "flex" : "none";
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") autoSync();
+});
+window.addEventListener("focus", autoSync);
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) autoSync(); // restored from back/forward cache — re-check as if freshly returned to
+});
+window.addEventListener("offline", updateOfflineIndicator);
+// The one most setups miss: reconnecting while never having left the tab
+// at all — no focus change, no visibility change, nothing else fires in
+// that specific case. The browser's own 'online' event exists precisely
+// for this moment.
+window.addEventListener("online", () => { updateOfflineIndicator(); autoSync(); });
+// Safety net beyond the event-driven triggers above — catches anything
+// missed (a tab that's never refocused, e.g. left open on a second
+// monitor) within a reasonable window regardless.
+setInterval(() => { if (sb && cloudUser) doFullSync(); }, 30000);
 
 function renderSettingsIfVisible() {
   if (currentTab === "settings") render();
@@ -3610,7 +3685,19 @@ function init() {
       render();
     }
   });
+  updateOfflineIndicator(); // check once immediately, in case the page loaded already offline
   initCloudAuth();
+}
+if ('serviceWorker' in navigator) {
+  // Registered directly here, NOT wrapped in a window 'load' listener —
+  // by the time a script this far down a large document runs,
+  // document.readyState can already be 'complete', meaning the 'load'
+  // event has already fired. A listener attached after the event it's
+  // waiting for already happened simply never runs — confirmed this
+  // exact bug while building the same registration for Kardex.
+  navigator.serviceWorker.register('sw.js').catch((err) =>
+    console.warn('Service worker registration failed — offline page loading unavailable, everything else unaffected', err)
+  );
 }
 
 function save() {
