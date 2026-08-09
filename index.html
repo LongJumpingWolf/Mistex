@@ -2779,6 +2779,8 @@ function startPracticeSession() {
   commentingId = null;
   practiceSkipped = false;
   practiceSetupMode = false;
+  practiceSessionResults = []; // { id, correct } per card, in order — for the post-session review
+  reviewingSession = false;
   savePracticeSetupPrefs();
   renderPreserveScroll();
 }
@@ -3457,6 +3459,8 @@ let practiceAnswered = false; // Whether the user has answered the current card
 let practiceLastCorrect = null; // Auto-detected result for the current card
 let practiceRepeatedMistake = false; // Whether the user repeated the exact same wrong answer
 let practiceSkipped = false; // True when the user hit Enter without picking an option — worse than a wrong pick
+let practiceSessionResults = []; // { id, correct } per card, in order — captured live, not inferred after the fact
+let reviewingSession = false;    // showing the post-session review screen (distinct from a Test History review)
 
 // Practice setup screen — shown before a test starts, not just a size toggle
 // mid-deck. "Start revising" and the Revise nav item both land here first.
@@ -3771,7 +3775,7 @@ function handleKeyboard(e) {
 
   // In revise mode: Enter reveals, then Enter again advances auto-graded cards.
   // Space does the same once the answer is already revealed.
-  if (currentTab === 'practice' && !practiceSetupMode && !testReviewBatchId) {
+  if (currentTab === 'practice' && !practiceSetupMode && !testReviewBatchId && !reviewingSession) {
     const current = practiceDeck[practiceIndex];
     if (e.key === ' ' || e.code === 'Space') {
       if (practiceRevealed) {
@@ -4360,7 +4364,7 @@ function switchTab(tab) {
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.querySelector(`[data-tab="${tab}"]`).classList.add("active");
   if (tab === "dashboard") { replayCheckpointOnRender = true; rerollDashboardPhrase(); }
-  if (tab === "practice") { practiceSetupMode = true; testReviewBatchId = null; }
+  if (tab === "practice") { practiceSetupMode = true; testReviewBatchId = null; reviewingSession = false; }
   render();
 }
 
@@ -5784,8 +5788,102 @@ function isOptionCorrect(optionText, correctAnswer) {
 // a Test History review, the pre-test setup screen, or an active/finished deck.
 function renderPractice(el) {
   if (testReviewBatchId) { renderTestReview(el); return; }
+  if (reviewingSession) { renderSessionReview(el); return; }
   if (practiceSetupMode) { renderPracticeSetup(el); return; }
   renderPracticeDeck(el);
+}
+
+function openSessionReview() {
+  reviewingSession = true;
+  renderPreserveScroll();
+}
+
+function closeSessionReview() {
+  reviewingSession = false;
+  renderPreserveScroll();
+}
+
+// Review screen for the session that JUST finished — distinct from a Test
+// History review (which looks back at a batch of originally-logged
+// mistakes). This shows exactly what happened in this practice run: each
+// card in the order it was answered, right/wrong per practiceSessionResults
+// (captured live during grading, not inferred from the mistake's current
+// state afterward — which could've since changed via sync or a later session).
+function renderSessionReview(el) {
+  const results = practiceSessionResults;
+  el.innerHTML = `
+    <div class="space-y-6">
+      <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:1.5rem;">
+        <div>
+          <button class="btn btn-ghost btn-sm" onclick="closeSessionReview()" style="margin-bottom:0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to results
+          </button>
+          <h2 style="font-size:1.125rem; font-weight:600;">Reviewing this set</h2>
+          <p style="margin-top:0.125rem; font-size:0.8125rem; color:var(--muted-foreground);">${results.length} card${results.length === 1 ? "" : "s"} · ${practiceScore.right} right · ${practiceScore.wrong} wrong</p>
+        </div>
+      </div>
+
+      ${results.map((r, i) => {
+        const m = mistakes.find(mm => mm.id === r.id);
+        if (!m) return "";
+        const { comments, body } = splitExplanationComments(m.explanation);
+        return `
+        <div class="panel flashcard">
+          <div class="flashcard-header">
+            <span class="label-mono">Card ${i + 1} / ${results.length} · <span style="font-weight:600; color:${r.correct ? "var(--good)" : "var(--sloppy)"};">${r.correct ? "Correct" : "Wrong"}</span></span>
+            <div style="display:flex; align-items:center; gap:0.25rem;">
+              <button class="card-action-btn star-btn ${m.starred ? "starred" : ""}" onclick="toggleStar('${m.id}')" title="${m.starred ? "Unstar" : "Star"}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="${m.starred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </button>
+              <button class="card-action-btn" onclick="openCommentBox('${m.id}')" title="Add a comment point">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              ${categoryTagHTML(m.category)}
+            </div>
+          </div>
+          <div class="flashcard-body">
+            <p class="flashcard-meta">${m.subject} / ${m.chapter} / ${m.topic}</p>
+            <h2 class="flashcard-question">${m.question}</h2>
+            ${m.options ? `
+              <div class="options-grid">
+                ${splitOptions(m).map(o => {
+                  const optCorrect = isOptionCorrect(o, m.correctAnswer);
+                  const wasChosenWrong = !r.correct && !optCorrect && m.wrongAnswer && isOptionCorrect(o, m.wrongAnswer);
+                  let cls = "option-item disabled";
+                  if (optCorrect) cls += " selected-correct";
+                  else if (wasChosenWrong) cls += " selected-wrong";
+                  return `<button class="${cls}" disabled>${o}</button>`;
+                }).join("")}
+              </div>
+            ` : `
+              <div class="reveal-answers" style="margin-top:1rem;">
+                <div class="reveal-correct" style="grid-column: 1 / -1;">
+                  <p class="label-mono" style="color:var(--good);">Correct answer</p>
+                  <p style="margin-top:0.25rem; font-weight:500; color:var(--good);">${m.correctAnswer || "—"}</p>
+                </div>
+              </div>
+            `}
+            <div class="reveal-section" style="margin-top:1rem;">
+              ${(comments.length || commentingId === m.id) ? `
+                <div class="comment-section">
+                  ${comments.map(c => `<p class="explanation-comment">${c}</p>`).join("")}
+                  ${commentingId === m.id ? `
+                    <div class="comment-input-row">
+                      <input type="text" class="input input-sm" id="commentInput-${m.id}" placeholder="Add a point… Enter to add, Esc to close" onkeydown="handleCommentKeydown(event, '${m.id}')">
+                      <button class="btn btn-ghost btn-sm" onclick="closeCommentBox()">Done</button>
+                    </div>
+                  ` : ""}
+                </div>
+              ` : ""}
+              ${body ? `<p class="reveal-explanation" style="margin-top:${(comments.length || commentingId === m.id) ? "0.5rem" : "0"};">${body}</p>` : ""}
+            </div>
+          </div>
+        </div>
+      `;
+      }).join("")}
+    </div>
+  `;
 }
 
 // ===== PRACTICE SETUP SCREEN =====
@@ -5827,7 +5925,7 @@ function renderPracticeSetup(el) {
         </div>
 
         <div class="setup-block">
-          <span class="label-mono setup-block-label">Focus</span>
+          <span class="label-mono setup-block-label" style="display:inline-flex; align-items:center;">Focus<span class="info-tip" data-tip="Starred cards are ones you've flagged from the card itself — Starred here means only revise those. They also get a natural boost in Normal difficulty even when Focus is set to All.">i</span></span>
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button type="button" class="chip ${practiceSetupFocus === "all" ? "active-status" : ""}" onclick="setPracticeSetupFocus('all')">All</button>
             <button type="button" class="chip ${practiceSetupFocus === "leeches" ? "active-status" : ""}" onclick="setPracticeSetupFocus('leeches')">Leeches <span class="label-mono">${leechCount}</span></button>
@@ -5845,7 +5943,7 @@ function renderPracticeSetup(el) {
         </div>
 
         <div class="setup-block">
-          <span class="label-mono setup-block-label">Difficulty</span>
+          <span class="label-mono setup-block-label" style="display:inline-flex; align-items:center;">Difficulty<span class="info-tip" data-tip="Real Stuff: leeches and highest-intensity cards first, no mercy, strict order. Normal: the default due-priority order, starred cards get a boost. Cake: a gentler pass — lower-intensity, easier-going cards first.">i</span></span>
           <div class="difficulty-btn-row">
             ${DIFFICULTY_LEVELS.map(d => `
               <button type="button" class="difficulty-btn difficulty-btn-${d.level} ${practiceSetupDifficulty === d.level ? "active" : ""}" onclick="setPracticeSetupDifficulty(${d.level})">
@@ -6029,7 +6127,15 @@ function renderPracticeDeck(el) {
           <p class="label-mono">Revision set complete</p>
           <p class="drill-pct">${Math.round((practiceScore.right / Math.max(1, practiceScore.right + practiceScore.wrong)) * 100)}%</p>
           <p style="margin-top:0.5rem; font-size:0.875rem; color:var(--muted-foreground);">${practiceScore.right} correct out of ${practiceScore.right + practiceScore.wrong}. No hidden scheduling — the queue is just the rule you can see on the card.</p>
-          <button class="btn btn-primary" style="margin-top:1.5rem;" onclick="backToPracticeSetup()">Start another set</button>
+          <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:1.5rem; flex-wrap:wrap;">
+            ${practiceSessionResults.length ? `
+              <button class="btn" onclick="openSessionReview()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                Review this test
+              </button>
+            ` : ""}
+            <button class="btn btn-primary" onclick="backToPracticeSetup()">Start another set</button>
+          </div>
         </div>
       ` : current ? `
         <div class="panel flashcard">
@@ -6159,6 +6265,7 @@ function selectPracticeOption(index) {
   practiceRepeatedMistake = !correct && !!previousWrong && chosenText.toLowerCase() === previousWrong;
   gradeMistake(current.id, correct, correct ? undefined : chosenText);
   practiceScore = { right: practiceScore.right + (correct ? 1 : 0), wrong: practiceScore.wrong + (correct ? 0 : 1) };
+  practiceSessionResults.push({ id: current.id, correct });
   renderPreserveScroll();
 }
 
@@ -6177,6 +6284,7 @@ function skipPracticeCard() {
   practiceRepeatedMistake = false;
   gradeMistake(current.id, false, undefined, true);
   practiceScore = { right: practiceScore.right, wrong: practiceScore.wrong + 1 };
+  practiceSessionResults.push({ id: current.id, correct: false });
   renderPreserveScroll();
 }
 
@@ -6193,6 +6301,7 @@ function answerPracticeManual(correct) {
   if (!current) return;
   gradeMistake(current.id, correct);
   practiceScore = { right: practiceScore.right + (correct ? 1 : 0), wrong: practiceScore.wrong + (correct ? 0 : 1) };
+  practiceSessionResults.push({ id: current.id, correct });
   nextCard();
 }
 
