@@ -1960,7 +1960,12 @@ select.toolbar-select:focus { border-color: var(--ring); }
 }
 .auth-gate-brand {
   display: none;
-  background: var(--ink);
+  /* Deliberately fixed, not var(--ink) — --ink flips to a bright color in
+     dark mode (it's reused there for active nav pills), which would make
+     this "dark hero panel" render light/washed-out instead. This panel is
+     a fixed design choice, not something that should react to the app's
+     own light/dark setting. */
+  background: oklch(0.16 0.02 265);
   background-image:
     radial-gradient(circle at 20% 15%, oklch(0.42 0.19 268 / 0.35), transparent 55%),
     radial-gradient(circle at 85% 80%, oklch(0.5 0.11 155 / 0.18), transparent 50%);
@@ -1984,7 +1989,7 @@ select.toolbar-select:focus { border-color: var(--ring); }
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 2.6vw, 2rem);
   line-height: 1.25;
-  color: var(--background);
+  color: oklch(0.985 0.004 260); /* fixed near-white, same reasoning as the background above */
   letter-spacing: -0.02em;
 }
 .auth-gate-features {
@@ -2052,9 +2057,26 @@ select.toolbar-select:focus { border-color: var(--ring); }
   width: 100%;
   justify-content: center;
   gap: 0.625rem;
-  padding-top: 0.7rem;
-  padding-bottom: 0.7rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  min-height: 3rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.08), 0 1px 1px oklch(0 0 0 / 0.04);
+  transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
 }
+.auth-gate-google-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px oklch(0.42 0.19 268 / 0.25), 0 1px 2px oklch(0 0 0 / 0.06);
+}
+.auth-gate-google-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
+}
+.auth-gate-google-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.auth-gate-google-btn svg { flex-shrink: 0; }
 .auth-gate-error {
   margin-top: 0.75rem;
   font-size: 0.8125rem;
