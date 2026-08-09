@@ -3016,7 +3016,6 @@ const sb = cloudConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE
 let cloudUser = null;           // { id, email, avatarUrl } | null — null means signed out (or not configured)
 let cloudSyncState = "idle";    // "idle" | "syncing" | "error"
 let cloudSyncError = null;
-let cloudPushTimer = null;
 
 // ===== FULL-SCREEN AUTH GATE =====
 // When cloud sync is configured, the app stays hidden behind this gate
@@ -3118,16 +3117,31 @@ async function signOutOfCloud() {
   showToast("Signed out. Your data stays on this device.");
 }
 
-// Debounced so rapid local edits (e.g. grading several practice cards in a
-// row) don't fire a network request per keystroke — only once things settle.
+let pushInFlight = false;
+let pushPending = false;
+
+// Fires as soon as possible instead of waiting on a timer — and, more
+// importantly, guarantees only one push is ever in flight at a time. A
+// debounce alone doesn't prevent two overlapping network requests from
+// completing out of order (a slow request from an earlier edit landing
+// AFTER a faster one from a later edit, silently overwriting fresher data
+// with stale data — this is what actually causes data loss, not the delay
+// itself). If a push is already running, this just marks that another one
+// is owed once it finishes, rather than starting a second request that
+// could race the first.
 function scheduleCloudPush() {
   if (!sb || !cloudUser) return;
-  clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(pushToCloud, 1500);
+  if (pushInFlight) {
+    pushPending = true;
+    return;
+  }
+  pushToCloud();
 }
 
 async function pushToCloud() {
   if (!sb || !cloudUser) return;
+  pushInFlight = true;
+  pushPending = false;
   cloudSyncState = "syncing";
   cloudSyncError = null;
   renderSettingsIfVisible();
@@ -3154,7 +3168,15 @@ async function pushToCloud() {
     cloudSyncState = "error";
     cloudSyncError = err.message || String(err);
   }
+  pushInFlight = false;
   renderSettingsIfVisible();
+  // Something changed while this push was running — fire one more now,
+  // carrying whatever's current. Since there's never more than one request
+  // in flight, this can never land out of order with the one that just finished.
+  if (pushPending) {
+    pushPending = false;
+    pushToCloud();
+  }
 }
 
 // ===== CLEAR DATA =====
@@ -3218,23 +3240,15 @@ async function pullFromCloud() {
   cloudSyncError = null;
   renderSettingsIfVisible();
   try {
-    // Guard against a shared/public device: if this browser last synced for
-    // a *different* account, blindly merging would push that other
-    // person's local leftovers into this account's cloud data. Ask first,
-    // rather than silently mixing two people's mistakes together.
+    // Accounts are isolated, full stop — if this browser last synced for a
+    // *different* account, that leftover local data isn't this account's to
+    // merge with. Clear it automatically rather than asking, since merging
+    // is never actually the right call for two different accounts (that's
+    // exactly the cross-contamination this guard exists to prevent).
     const lastSyncedUserId = localStorage.getItem(LAST_SYNCED_USER_KEY);
-    if (lastSyncedUserId && lastSyncedUserId !== cloudUser.id && mistakes.length) {
-      const keepLocal = await showConfirmDialog(
-        "Different account signed in",
-        `This device has ${mistakes.length} mistake${mistakes.length === 1 ? "" : "s"} saved for a different account. ` +
-        `Replace them with ${cloudUser.email}'s data (recommended for a shared device), or keep both?`,
-        { okLabel: "Replace", cancelLabel: "Keep both" }
-      );
-      if (keepLocal) {
-        mistakes = [];
-      }
-      // "Keep both" falls through to the normal merge below — only use this
-      // if you're sure both sets of data genuinely belong to you.
+    const isDifferentAccount = lastSyncedUserId && lastSyncedUserId !== cloudUser.id;
+    if (isDifferentAccount) {
+      await clearLocalData(true);
     }
 
     const { data: remoteMistakeRows, error: mErr } = await sb
@@ -3266,6 +3280,7 @@ async function pullFromCloud() {
       }
       save();
     }
+    if (isDifferentAccount) showToast(`Switched to ${cloudUser.email}'s data.`);
     localStorage.setItem(LAST_SYNCED_USER_KEY, cloudUser.id);
     cloudSyncState = "idle";
   } catch (err) {
