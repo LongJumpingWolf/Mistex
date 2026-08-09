@@ -326,6 +326,24 @@ h1, h2, h3 {
   white-space:nowrap; flex-shrink:0;
 }
 #offlineIndicator svg{ flex-shrink:0; }
+.header-sync-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.header-sync-btn:hover { background: var(--muted); color: var(--foreground); border-color: var(--ring); }
+.header-sync-btn.sync-error { border-color: var(--sloppy); color: var(--sloppy); }
+@keyframes headerSyncSpin { to { transform: rotate(360deg); } }
+.header-sync-btn.syncing svg { animation: headerSyncSpin 0.8s linear infinite; }
 .logo-icon {
   display: block;
   width: 2.25rem;
@@ -1914,57 +1932,14 @@ select.toolbar-select:focus { border-color: var(--ring); }
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
   background: var(--background);
-}
-.auth-gate-card {
-  width: 100%;
-  max-width: 22rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.75rem;
-  padding: 2.5rem 2rem;
-  background: var(--paper);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lift);
-}
-.auth-gate-logo {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: var(--radius);
-  margin-bottom: 0.25rem;
-}
-.auth-gate-title {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-.auth-gate-sub {
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-  margin-bottom: 0.5rem;
-}
-.auth-gate-google-btn {
-  width: 100%;
-  justify-content: center;
-}
-.auth-gate-error {
-  margin-top: 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--sloppy);
-}
-.auth-gate-footnote {
-  margin-top: 1.25rem;
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
+  overflow-y: auto;
 }
 .auth-gate-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 999px;
@@ -1973,7 +1948,149 @@ select.toolbar-select:focus { border-color: var(--ring); }
   animation: authGateSpin 0.7s linear infinite;
 }
 @keyframes authGateSpin {
-  to { transform: rotate(360deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.auth-gate-split {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  .auth-gate-split { grid-template-columns: 1.05fr 1fr; }
+}
+.auth-gate-brand {
+  display: none;
+  background: var(--ink);
+  background-image:
+    radial-gradient(circle at 20% 15%, oklch(0.42 0.19 268 / 0.35), transparent 55%),
+    radial-gradient(circle at 85% 80%, oklch(0.5 0.11 155 / 0.18), transparent 50%);
+  position: relative;
+  overflow: hidden;
+}
+@media (min-width: 900px) {
+  .auth-gate-brand { display: flex; align-items: center; }
+}
+.auth-gate-brand-inner {
+  padding: clamp(2.5rem, 5vw, 4rem);
+  max-width: 30rem;
+}
+.auth-gate-brand-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2.5rem;
+}
+.auth-gate-headline {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.25;
+  color: var(--background);
+  letter-spacing: -0.02em;
+}
+.auth-gate-features {
+  list-style: none;
+  margin-top: 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.auth-gate-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: oklch(0.82 0.02 260);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.auth-gate-features svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: oklch(0.72 0.14 268);
+}
+.auth-gate-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  min-height: 100vh;
+}
+.auth-gate-card {
+  width: 100%;
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  gap: 0.5rem;
+  padding: clamp(1.75rem, 5vw, 2.5rem);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  animation: authGateCardIn 0.35s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes authGateCardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.auth-gate-logo {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius);
+}
+.auth-gate-title {
+  margin-top: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+.auth-gate-sub {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.75rem;
+}
+.auth-gate-google-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.625rem;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+.auth-gate-error {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--sloppy);
+}
+.auth-gate-footnote {
+  margin-top: 1.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* ===== ONBOARDING TOUR ===== */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  /* No background of its own — the ring's box-shadow (below) is the only
+     dimming layer. A flat background here would sit on top of the "hole"
+     the ring creates and darken the highlighted target too. */
+}
+.onboarding-ring {
+  position: fixed;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 3px var(--signal), 0 0 0 6000px oklch(0 0 0 / 0.5);
+  pointer-events: none;
+  transition: top 0.25s, left 0.25s, width 0.25s, height 0.25s;
+}
+.onboarding-callout {
+  position: fixed;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  padding: 1.25rem;
+  max-width: calc(100vw - 2rem);
+  animation: authGateCardIn 0.25s cubic-bezier(.2,.8,.2,1);
 }
 
 /* ===== EDIT DIALOG ===== */
@@ -2041,6 +2158,20 @@ select.toolbar-select:focus { border-color: var(--ring); }
 /* ===== SETTINGS DIALOG ===== */
 .settings-panel { padding: clamp(1.125rem, 4.5vw, 1.5rem); }
 .settings-panel-title { font-size: clamp(1rem, 3.6vw, 1.125rem); font-weight: 600; }
+.danger-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--sloppy-soft);
+}
+@media (max-width: 640px) {
+  .danger-action { flex-direction: column; align-items: stretch; }
+}
 .account-row {
   display: flex;
   align-items: center;
@@ -2345,6 +2476,10 @@ img, svg, canvas, table { max-width: 100%; }
      (config.js present with real keys) — if it's not, this stays hidden
      forever and the app behaves exactly as it always has: no account needed. -->
 <div id="authGate" class="auth-gate" style="display:none;"></div>
+
+<!-- Onboarding tour overlay — lives outside #mainContent since every step
+     targets a static header element, not tab content. -->
+<div id="onboardingOverlay" class="onboarding-overlay" style="display:none;"></div>
 <div id="app">
   <!-- Header -->
   <header class="header">
@@ -2360,6 +2495,9 @@ img, svg, canvas, table { max-width: 100%; }
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
         <span>Offline</span>
       </div>
+      <button id="headerSyncBtn" class="header-sync-btn" style="display:none;" onclick="doFullSync()" title="Sync now">
+        <svg id="headerSyncIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
       <nav class="nav">
         <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
@@ -2380,7 +2518,7 @@ img, svg, canvas, table { max-width: 100%; }
           </span>
           <span class="nav-label">Revise</span>
         </button>
-        <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')" title="Settings">
+        <button class="nav-btn" id="settingsGearBtn" data-tab="settings" onclick="switchTab('settings')" title="Settings">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
         <!-- nav-clear removed -->
@@ -3090,21 +3228,47 @@ function renderAuthGate() {
   if (!gate) return;
 
   if (!authCheckComplete) {
-    gate.innerHTML = `<div class="auth-gate-card"><div class="auth-gate-spinner"></div></div>`;
+    gate.innerHTML = `<div class="auth-gate-spinner"></div>`;
     return;
   }
 
+  const features = [
+    { icon: `<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>`, text: "Log a mistake in seconds — paste it in or type it by hand." },
+    { icon: `<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>`, text: "Leeches and weak spots surface themselves — you don't have to go looking." },
+    { icon: `<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>`, text: "Signed in, everything syncs across every device automatically." },
+  ];
+
   gate.innerHTML = `
-    <div class="auth-gate-card">
-      <img class="auth-gate-logo" src="icons/android-chrome-192x192.png" alt="Mistex logo">
-      <h1 class="auth-gate-title">Mistex</h1>
-      <p class="auth-gate-sub">Sign in to log, track, and revise your mistakes.</p>
-      <button class="btn btn-primary auth-gate-google-btn" onclick="signInWithGoogle()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Sign in with Google
-      </button>
-      ${authGateError ? `<p class="auth-gate-error">${authGateError}</p>` : ""}
-      <p class="auth-gate-footnote">Your data is private to your account and synced across devices.</p>
+    <div class="auth-gate-split">
+      <div class="auth-gate-brand">
+        <div class="auth-gate-brand-inner">
+          <div class="auth-gate-brand-top">
+            <img class="auth-gate-logo" src="icons/android-chrome-192x192.png" alt="Mistex logo">
+            <span class="label-mono" style="color:oklch(0.72 0.02 260);">Mistake ledger</span>
+          </div>
+          <h1 class="auth-gate-headline">Turn every wrong answer into something you'll never miss again.</h1>
+          <ul class="auth-gate-features">
+            ${features.map(f => `
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>
+                <span>${f.text}</span>
+              </li>
+            `).join("")}
+          </ul>
+        </div>
+      </div>
+      <div class="auth-gate-form">
+        <div class="auth-gate-card">
+          <h2 class="auth-gate-title">Welcome to Mistex</h2>
+          <p class="auth-gate-sub">Sign in to log, track, and revise your mistakes.</p>
+          <button class="btn btn-primary auth-gate-google-btn" onclick="signInWithGoogle()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Sign in with Google
+          </button>
+          ${authGateError ? `<p class="auth-gate-error">${authGateError}</p>` : ""}
+          <p class="auth-gate-footnote">Your data is private to your account and synced across devices.</p>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -3272,6 +3436,8 @@ async function clearAllDataEverywhere() {
 // already local. Deliberately simple last-write-wins merge by id, keyed on
 // each mistake's own `lastReviewed`/`createdAt` — good enough for a single
 // person syncing across their own devices, not built for concurrent editors.
+let firstPostAuthCheckDone = false; // ensures the onboarding/revision-note decision below only ever runs once per page load, not on every sync
+
 async function pullFromCloud() {
   if (!sb || !cloudUser) return;
   cloudSyncState = "syncing";
@@ -3324,6 +3490,11 @@ async function pullFromCloud() {
   } catch (err) {
     cloudSyncState = "error";
     cloudSyncError = err.message || String(err);
+  }
+  if (!firstPostAuthCheckDone) {
+    firstPostAuthCheckDone = true;
+    if (shouldAutoStartOnboarding() && !onboardingActive) startOnboarding();
+    else if (settings.showRevisionNote !== false) openRevisionNote();
   }
   render();
 }
@@ -3383,7 +3554,27 @@ window.addEventListener("online", () => { updateOfflineIndicator(); autoSync(); 
 setInterval(() => { if (sb && cloudUser) doFullSync(); }, 30000);
 
 function renderSettingsIfVisible() {
+  updateHeaderSyncButton(); // header lives outside #mainContent — cheap enough to always touch, not just on the Settings tab
   if (currentTab === "settings") render();
+}
+
+// Lives in the header (not #mainContent), so it's reachable from every tab,
+// not just Settings — and needs its own update path since it's outside the
+// normal render() cycle for the current tab's content.
+function updateHeaderSyncButton() {
+  const btn = document.getElementById("headerSyncBtn");
+  if (!btn) return;
+  if (!cloudConfigured || !cloudUser) {
+    btn.style.display = "none";
+    return;
+  }
+  btn.style.display = "flex";
+  btn.classList.toggle("syncing", cloudSyncState === "syncing");
+  btn.classList.toggle("sync-error", cloudSyncState === "error");
+  btn.title = cloudSyncState === "syncing" ? "Syncing…"
+    : cloudSyncState === "error" ? `Sync failed: ${cloudSyncError} — click to retry`
+    : settings.lastCloudSyncAt ? `Synced ${new Date(settings.lastCloudSyncAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} — click to sync now`
+    : "Click to sync now";
 }
 
 // Wires up auth state on load. Safe no-op when cloud sync isn't configured
@@ -3442,7 +3633,7 @@ const MASTERY_STREAK = 4;             // rule 4: graduate to "mastered" after 4 
 const MASTERY_CHECKIN_DAYS = 30;      // rule 5: monthly check-in for mastered cards
 
 let mistakes = [];
-let settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system" };
+let settings = { weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false };
 let currentTab = "dashboard";
 let editingId = null;
 let hydrated = false;
@@ -3642,8 +3833,142 @@ function watchSystemTheme() {
   });
 }
 
+// ===== ONBOARDING TOUR =====
+// Every target here is a static header element (nav buttons, the sync
+// button) rather than anything inside #mainContent — deliberately, so the
+// tour never has to force a tab switch mid-step or worry about a target
+// disappearing when the current tab re-renders for an unrelated reason.
+let onboardingActive = false;
+let onboardingStepIndex = 0;
+const ONBOARDING_STEPS = [
+  {
+    target: null,
+    title: "Welcome to Mistex",
+    body: "Every wrong answer you log becomes a tracked, re-testable card — not just a note you'll forget about. Here's where everything lives.",
+  },
+  {
+    target: '[data-tab="log"]',
+    title: "Log a mistake",
+    body: "Start here. Paste in a screenshot's worth of questions, or type one in by hand — either way it's parsed into a proper card in seconds.",
+  },
+  {
+    target: '[data-tab="library"]',
+    title: "Find it again",
+    body: "Every mistake you've ever logged lives here. Search by keyword, browse by subject and chapter, star the ones you want to see more often.",
+  },
+  {
+    target: '[data-tab="practice"]',
+    title: "Revise",
+    body: "This is where you actually practice. Pick how many cards, from where, and how tough — that badge shows how many are due right now.",
+  },
+  {
+    target: "#headerSyncBtn, #settingsGearBtn",
+    title: "Sync, theme, and backups",
+    body: "If you're signed in, this is your sync button — click anytime to force a sync. Dark mode, exporting a backup, and the danger zone all live in Settings.",
+  },
+  {
+    target: null,
+    title: "That's the whole loop",
+    body: "Log it, find it, revise it. Weak spots and repeat offenders surface themselves on the Overview tab as you go — you don't have to go looking for them.",
+  },
+];
+
+// Genuinely new (this device's storage was empty before load, and they've
+// never dismissed the tour before) — not "mistakes.length === 0", which
+// would never be true even for a brand-new install since seed data gets
+// auto-populated moments before this check would run.
+function shouldAutoStartOnboarding() {
+  return !settings.onboardingSeen && isFreshInstall && (!cloudConfigured || !!cloudUser);
+}
+
+function startOnboarding() {
+  onboardingActive = true;
+  onboardingStepIndex = 0;
+  window.addEventListener("resize", renderOnboardingStep);
+  renderOnboardingStep();
+}
+
+function nextOnboardingStep() {
+  onboardingStepIndex++;
+  if (onboardingStepIndex >= ONBOARDING_STEPS.length) { finishOnboarding(); return; }
+  renderOnboardingStep();
+}
+
+function prevOnboardingStep() {
+  onboardingStepIndex = Math.max(0, onboardingStepIndex - 1);
+  renderOnboardingStep();
+}
+
+function skipOnboarding() { finishOnboarding(); }
+
+function finishOnboarding() {
+  onboardingActive = false;
+  settings.onboardingSeen = true;
+  save();
+  const overlay = document.getElementById("onboardingOverlay");
+  if (overlay) overlay.style.display = "none";
+  window.removeEventListener("resize", renderOnboardingStep);
+}
+
+function renderOnboardingStep() {
+  const overlay = document.getElementById("onboardingOverlay");
+  if (!overlay) return;
+  overlay.style.display = "block";
+  const step = ONBOARDING_STEPS[onboardingStepIndex];
+  const isLast = onboardingStepIndex === ONBOARDING_STEPS.length - 1;
+  const isFirst = onboardingStepIndex === 0;
+
+  // The ring always renders — for no-target/no-match cases it collapses to
+  // a zero-size point centered on screen, so its box-shadow alone still
+  // provides full-screen dimming with no visible "hole" anywhere.
+  let ringStyle = `top:50%; left:50%; width:0px; height:0px;`;
+  let calloutStyle = "top:50%; left:50%; transform:translate(-50%,-50%);";
+  const CALLOUT_W = 320;
+  if (step.target) {
+    // A couple of steps offer a comma-separated fallback selector, in case
+    // the primary target (e.g. the sync button) is hidden — try each in order.
+    const selectors = step.target.split(",").map(s => s.trim());
+    let target = null;
+    for (const sel of selectors) {
+      const candidate = document.querySelector(sel);
+      if (candidate && candidate.offsetParent !== null) { target = candidate; break; }
+    }
+    if (target) {
+      const r = target.getBoundingClientRect();
+      const pad = 8;
+      ringStyle = `top:${r.top - pad}px; left:${r.left - pad}px; width:${r.width + pad * 2}px; height:${r.height + pad * 2}px;`;
+      const spaceBelow = window.innerHeight - r.bottom;
+      const left = Math.min(Math.max(r.left, 16), window.innerWidth - CALLOUT_W - 16);
+      if (spaceBelow > 200) {
+        calloutStyle = `top:${r.bottom + 18}px; left:${left}px; transform:none;`;
+      } else {
+        calloutStyle = `top:${r.top - 18}px; left:${left}px; transform:translateY(-100%);`;
+      }
+    }
+  }
+
+  overlay.innerHTML = `
+    <div class="onboarding-ring" style="${ringStyle}"></div>
+    <div class="onboarding-callout" style="${calloutStyle} width:${CALLOUT_W}px;">
+      <p class="label-mono" style="color:var(--muted-foreground);">${onboardingStepIndex + 1} of ${ONBOARDING_STEPS.length}</p>
+      <h3 style="margin-top:0.5rem; font-size:1.0625rem; font-weight:600;">${step.title}</h3>
+      <p style="margin-top:0.5rem; font-size:0.875rem; color:var(--muted-foreground); line-height:1.5;">${step.body}</p>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1.25rem;">
+        <button class="btn btn-ghost btn-sm" onclick="skipOnboarding()">Skip</button>
+        <div style="display:flex; gap:0.5rem;">
+          ${!isFirst ? `<button class="btn btn-sm" onclick="prevOnboardingStep()">Back</button>` : ""}
+          <button class="btn btn-primary btn-sm" onclick="${isLast ? "finishOnboarding()" : "nextOnboardingStep()"}">${isLast ? "Start using Mistex" : "Next"}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let isFreshInstall = false; // captured in init(), before seed data gets auto-populated — see shouldAutoStartOnboarding()
+
 function init() {
   const stored = localStorage.getItem(STORAGE_KEY);
+  isFreshInstall = !stored;
   if (stored) {
     try { mistakes = JSON.parse(stored); } catch { mistakes = []; }
   }
@@ -3677,7 +4002,7 @@ function init() {
     try {
       const parsed = JSON.parse(storedSettings);
       settings = {
-        ...{ weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system" },
+        ...{ weeklyGoal: 15, showRevisionNote: true, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false },
         ...parsed,
         logSectionsCollapsed: { ai: false, manual: true, ...(parsed.logSectionsCollapsed || {}) },
       };
@@ -3694,8 +4019,13 @@ function init() {
   loadPracticeSetupPrefs();
   hydrated = true;
   render();
-  if (settings.showRevisionNote !== false) {
-    openRevisionNote();
+  // Cloud-configured apps defer this exact decision to pullFromCloud()'s
+  // first completion instead (see firstPostAuthCheckDone below) — auth
+  // hasn't resolved yet at this point, so we don't yet know if this is a
+  // genuinely new account or an existing one signing in on a new device.
+  if (!cloudConfigured) {
+    if (shouldAutoStartOnboarding()) startOnboarding();
+    else if (settings.showRevisionNote !== false) openRevisionNote();
   }
   document.addEventListener('keydown', handleKeyboard);
   document.addEventListener('visibilitychange', () => {
@@ -4628,6 +4958,7 @@ function render() {
   const stats = computeStats();
   document.getElementById("footerStats").textContent = `Stored locally in your browser · ${stats.total} entries · ${stats.mastered} mastered`;
   updateDueBadge();
+  updateHeaderSyncButton();
 
   if (currentTab === "dashboard") renderDashboard(main, stats);
   else if (currentTab === "log") renderLog(main);
@@ -5480,7 +5811,7 @@ function renderSettings(el) {
                 ${cloudSyncState === "syncing" ? "Syncing…" : cloudSyncState === "error" ? `Sync failed: ${cloudSyncError}` : settings.lastCloudSyncAt ? `Synced ${new Date(settings.lastCloudSyncAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "Not synced yet"}
               </span>
             </div>
-            <button class="btn" onclick="pullFromCloud()" title="Pull latest from the cloud">
+            <button class="btn" onclick="doFullSync()" title="Sync now (pulls, then pushes)">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
             </button>
             <button class="btn btn-destructive" onclick="signOutOfCloud()">Sign Out</button>
@@ -5496,7 +5827,10 @@ function renderSettings(el) {
             `<button class="chip ${(settings.theme || "system") === val ? "active-status" : ""}" onclick="setTheme('${val}')">${label}</button>`
           ).join("")}
         </div>
-        <button class="btn btn-sm" style="margin-top:1rem;" onclick="showTipsAgain()">Show tips again</button>
+        <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="showTipsAgain()">Show tips again</button>
+          <button class="btn btn-sm" onclick="switchTab('dashboard'); startOnboarding();">Take the tour</button>
+        </div>
       </section>
 
       <section class="panel settings-panel">
@@ -5518,11 +5852,31 @@ function renderSettings(el) {
 
       <section class="panel settings-panel danger-zone">
         <h2 class="settings-panel-title" style="color:var(--sloppy);">Danger Zone</h2>
-        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Permanently remove data. Export a backup first if you're not sure.</p>
-        <div style="display:flex; gap:0.5rem; margin-top:1.25rem; flex-wrap:wrap;">
-          <button class="btn btn-destructive" onclick="clearAllDataLocalOnly()">Clear this device</button>
-          ${cloudUser ? `<button class="btn btn-destructive" onclick="clearAllDataEverywhere()">Delete everything (device + cloud)</button>` : ""}
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Export a backup first if you're not sure — see Data above.</p>
+
+        <div class="danger-action">
+          <div>
+            <p style="font-weight:500; font-size:0.875rem;">Clear this device</p>
+            <p style="margin-top:0.25rem; font-size:0.8125rem; color:var(--muted-foreground); line-height:1.5;">
+              ${cloudUser
+                ? `Deletes every mistake from this browser only. Your cloud account (${cloudUser.email}) is untouched — hit "Sync now" afterward to bring everything straight back. Use this if this device just needs a fresh local copy.`
+                : `Deletes every mistake from this browser. Since you're not signed in, nothing is backed up anywhere else — this is permanent and cannot be undone.`}
+            </p>
+          </div>
+          <button class="btn btn-destructive" onclick="clearAllDataLocalOnly()" style="flex-shrink:0;">Clear this device</button>
         </div>
+
+        ${cloudUser ? `
+          <div class="danger-action">
+            <div>
+              <p style="font-weight:500; font-size:0.875rem;">Delete everything (device + cloud)</p>
+              <p style="margin-top:0.25rem; font-size:0.8125rem; color:var(--muted-foreground); line-height:1.5;">
+                Deletes this device's copy <strong>and</strong> every mistake saved to your account (${cloudUser.email}) in the cloud. There is no backup left afterward on any device — this genuinely cannot be undone. Only use this if you actually want the data gone, not just reset locally.
+              </p>
+            </div>
+            <button class="btn btn-destructive" onclick="clearAllDataEverywhere()" style="flex-shrink:0;">Delete everything</button>
+          </div>
+        ` : ""}
       </section>
     </div>`;
 }
