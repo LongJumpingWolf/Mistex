@@ -61,6 +61,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 <style>
 /* Mistex design system — "Ink & Ultramarine" */
 :root {
+  color-scheme: light;
   --radius: 0.375rem;
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
@@ -89,6 +90,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   --border: oklch(0.885 0.008 262);
   --input: oklch(0.885 0.008 262);
   --ring: oklch(0.42 0.19 268);
+  --ring-shadow: oklch(0.42 0.19 268 / 0.2);
   --stretch: oklch(0.5 0.13 245);
   --stretch-soft: oklch(0.94 0.03 245);
   --aha: oklch(0.58 0.12 78);
@@ -117,6 +119,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
    every surface, text, and category color gets a value actually tuned for
    contrast on a dark background, not just an auto-inverted lightness. */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --background: oklch(0.16 0.015 265);
   --foreground: oklch(0.92 0.006 260);
   --paper: oklch(0.205 0.014 265);
@@ -140,6 +143,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   --border: oklch(0.32 0.015 262);
   --input: oklch(0.32 0.015 262);
   --ring: oklch(0.72 0.14 268);
+  --ring-shadow: oklch(0.72 0.14 268 / 0.28);
   --stretch: oklch(0.72 0.13 245);
   --stretch-soft: oklch(0.27 0.05 245);
   --aha: oklch(0.75 0.12 78);
@@ -269,7 +273,7 @@ h1, h2, h3 {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .input::placeholder { color: var(--muted-foreground); }
-.input:focus { border-color: var(--ring); box-shadow: 0 0 0 2px oklch(0.42 0.19 268 / 0.2); }
+.input:focus { border-color: var(--ring); box-shadow: 0 0 0 2px var(--ring-shadow); }
 .input-sm { font-size: 0.8125rem; }
 
 .textarea {
@@ -287,7 +291,7 @@ h1, h2, h3 {
   min-height: 4rem;
 }
 .textarea::placeholder { color: var(--muted-foreground); }
-.textarea:focus { border-color: var(--ring); box-shadow: 0 0 0 2px oklch(0.42 0.19 268 / 0.2); }
+.textarea:focus { border-color: var(--ring); box-shadow: 0 0 0 2px var(--ring-shadow); }
 .textarea.mono { font-family: var(--font-mono); font-size: 0.75rem; }
 
 /* Header */
@@ -2793,7 +2797,18 @@ function setPracticeSetupCount(n) {
 function setPracticeSetupCustomCount(value) {
   practiceSetupCustomCount = value.replace(/[^0-9]/g, "");
   practiceSetupCount = "custom";
+  // renderPreserveScroll() rebuilds the whole setup screen, which destroys
+  // and recreates this exact input — losing focus after every single
+  // keystroke otherwise. Same fix as the library search box: capture the
+  // cursor position, re-render, then find the fresh input and restore both.
+  const cursor = document.activeElement?.id === "customCountInput" ? document.activeElement.selectionStart : null;
   renderPreserveScroll();
+  if (cursor !== null) {
+    requestAnimationFrame(() => {
+      const fresh = document.getElementById("customCountInput");
+      if (fresh) { fresh.focus(); fresh.setSelectionRange(cursor, cursor); }
+    });
+  }
 }
 
 function togglePracticeSetupRandom() {
@@ -3147,22 +3162,20 @@ let pushPending = false;
 // completing out of order (a slow request from an earlier edit landing
 // AFTER a faster one from a later edit, silently overwriting fresher data
 // with stale data — this is what actually causes data loss, not the delay
-// itself).
+// itself). If a push is already running, this just marks that another one
+// is owed once it finishes, rather than starting a second request that
+// could race the first.
 function scheduleCloudPush() {
+  if (!sb || !cloudUser) return;
+  if (pushInFlight) {
+    pushPending = true;
+    return;
+  }
   pushToCloud();
 }
 
 async function pushToCloud() {
   if (!sb || !cloudUser) return;
-  // The reentrancy guard lives here, not in scheduleCloudPush() — pushToCloud()
-  // also gets called directly (doFullSync()'s sync step), and a guard that only
-  // lived in the caller would silently stop protecting anything called that way.
-  // If a push is already running, this just marks that another one is owed
-  // once it finishes, rather than starting a second request that could race it.
-  if (pushInFlight) {
-    pushPending = true;
-    return;
-  }
   pushInFlight = true;
   pushPending = false;
   cloudSyncState = "syncing";
@@ -3257,16 +3270,8 @@ async function clearAllDataEverywhere() {
 // already local. Deliberately simple last-write-wins merge by id, keyed on
 // each mistake's own `lastReviewed`/`createdAt` — good enough for a single
 // person syncing across their own devices, not built for concurrent editors.
-let pullInFlight = false;
-
 async function pullFromCloud() {
   if (!sb || !cloudUser) return;
-  // Same reasoning as pushToCloud()'s guard: pullFromCloud() gets called from
-  // multiple places now (manual "Sync now", sign-in, doFullSync()'s auto-sync
-  // step) — a concurrency guard only matters if it can't be bypassed by
-  // calling from a new site, so it lives here rather than in each caller.
-  if (pullInFlight) return;
-  pullInFlight = true;
   cloudSyncState = "syncing";
   cloudSyncError = null;
   renderSettingsIfVisible();
@@ -3318,7 +3323,6 @@ async function pullFromCloud() {
     cloudSyncState = "error";
     cloudSyncError = err.message || String(err);
   }
-  pullInFlight = false;
   render();
 }
 
@@ -4616,12 +4620,6 @@ function render() {
     document.getElementById("mainContent").innerHTML = '<div class="panel" style="height:16rem;" class="pulse"></div>';
     return;
   }
-  // Lives here, not just in setTheme(), so ANY path that changes
-  // settings.theme and calls render() — a cloud sync merging in a theme set
-  // on another device, an import, clearing data — actually applies it
-  // visually too. A per-call-site fix is easy to forget the next time a new
-  // code path touches settings; a single chokepoint can't be skipped.
-  applyTheme();
   const main = document.getElementById("mainContent");
   const stats = computeStats();
   document.getElementById("footerStats").textContent = `Stored locally in your browser · ${stats.total} entries · ${stats.mastered} mastered`;
@@ -5813,7 +5811,7 @@ function renderPracticeSetup(el) {
           <span class="label-mono setup-block-label">How many</span>
           <div class="setup-count-row">
             ${PRACTICE_COUNT_PRESETS.map(n => `<button class="chip ${practiceSetupCount === n ? "active-status" : ""}" onclick="setPracticeSetupCount(${n})">${n}</button>`).join("")}
-            <input type="text" inputmode="numeric" class="input input-sm setup-count-custom" placeholder="Custom" value="${practiceSetupCount === "custom" ? escHtmlAttr(practiceSetupCustomCount) : ""}" oninput="setPracticeSetupCustomCount(this.value)" onclick="this.select()">
+            <input type="text" inputmode="numeric" id="customCountInput" class="input input-sm setup-count-custom" placeholder="Custom" value="${practiceSetupCount === "custom" ? escHtmlAttr(practiceSetupCustomCount) : ""}" oninput="setPracticeSetupCustomCount(this.value)" onclick="this.select()">
           </div>
           ${practiceSetupFocus === "all" && scopedCount > 0 && count > scopedCount ? `<p class="setup-note">Only ${scopedCount} in scope, so mastered cards will top up the rest — most-due-for-a-refresher first.</p>` : ""}
           ${practiceSetupFocus !== "all" && count > scopedCount ? `<p class="setup-note">Only ${scopedCount} match this focus — the session will be shorter than ${count}.</p>` : ""}
