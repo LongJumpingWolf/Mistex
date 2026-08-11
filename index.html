@@ -3745,7 +3745,7 @@ const MASTERY_STREAK = 4;             // rule 4: graduate to "mastered" after 4 
 const MASTERY_CHECKIN_DAYS = 30;      // rule 5: monthly check-in for mastered cards
 
 let mistakes = [];
-let settings = { weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false };
+let settings = { weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false, reviseSessions: [] };
 let currentTab = "dashboard";
 let editingId = null;
 let hydrated = false;
@@ -3765,6 +3765,7 @@ let practiceSkipped = false; // True when the user hit Enter without picking an 
 let practiceSessionResults = []; // { id, correct } per card, in order — captured live, not inferred after the fact
 let practiceMultiSelected = new Set(); // indices of currently checked options, for multi-answer cards only
 let reviewingSession = false;    // showing the post-session review screen (distinct from a Test History review)
+let sessionReviewRecord = null;  // { id, completedAt, results, right, wrong } — the session currently being reviewed
 
 // Practice setup screen — shown before a test starts, not just a size toggle
 // mid-deck. "Start revising" and the Revise nav item both land here first.
@@ -4034,7 +4035,7 @@ function init() {
     try {
       const parsed = JSON.parse(storedSettings);
       settings = {
-        ...{ weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false },
+        ...{ weeklyGoal: 15, heatmapRangeDays: 30, logSectionsCollapsed: { ai: false, manual: true }, lastExportAt: null, exportReminderDismissedAt: null, theme: "system", onboardingSeen: false, reviseSessions: [] },
         ...parsed,
         logSectionsCollapsed: { ai: false, manual: true, ...(parsed.logSectionsCollapsed || {}) },
       };
@@ -5349,6 +5350,26 @@ function renderLog(el) {
           </div>
         </div>
       </section>
+
+      <section class="panel settings-panel">
+        <h2 class="settings-panel-title">Test History</h2>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Every batch of mistakes logged in one go counts as a test. Click one to review it. "Mastered" is derived automatically from how you've actually done revising each one since.</p>
+        <div class="test-history-scroll" style="margin-top:1.25rem;">
+          <table class="test-history-table responsive-table">
+            <thead>
+              <tr>
+                <th style="width:3.5rem;">Sr No.</th>
+                <th>Test Name</th>
+                <th>Topic to Focus On</th>
+                <th style="width:8.5rem;">Mastered</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderLoggedBatchRows()}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   `;
 }
@@ -5803,16 +5824,18 @@ function computeTestHistory() {
   return list.sort((a, b) => b.testDate - a.testDate); // newest first for display
 }
 
-function renderTestHistoryRows() {
+// Combines originally-logged batches (Test History's original meaning) with
+// completed revise sessions into one chronological list — numbered together,
+// newest first, so "any revised test from the Revise tab" actually shows up
+// here like the logged ones always have.
+// ===== LOG TAB: logged batches only =====
+function renderLoggedBatchRows() {
   const history = computeTestHistory();
   if (!history.length) {
     return `<tr><td colspan="4" style="padding:1.5rem; text-align:center; color:var(--muted-foreground);">No tests logged yet.</td></tr>`;
   }
   return history.map(t => {
     const testName = `Test ${t.testNumber} — ${t.topTopics.join(", ") || "General"}`;
-    // Derived straight from each mistake's real revision record (mastered
-    // flag, itself only set once the FSRS-lite streak rule is satisfied) —
-    // no free-text field for the user to fill in by hand.
     const total = t.items.length;
     const masteredCount = t.items.filter(m => m.mastered).length;
     const pct = total ? Math.round((masteredCount / total) * 100) : 0;
@@ -5825,6 +5848,43 @@ function renderTestHistoryRows() {
           <div class="test-history-result" title="${masteredCount} of ${total} mistakes from this test are now mastered">
             <div class="test-result-bar"><div class="test-result-fill" style="width:${pct}%"></div></div>
             <span class="label-mono test-result-count">${masteredCount}/${total}</span>
+          </div>
+        </td>
+      </tr>`;
+  }).join("");
+}
+
+// ===== REVISE TAB: completed revise sessions only =====
+function computeReviseSessionHistory() {
+  const list = (settings.reviseSessions || []).map(s => ({
+    id: s.id,
+    date: s.completedAt,
+    name: s.subjects && s.subjects.length ? s.subjects.join(", ") : "Mixed topics",
+    scoreLabel: `${s.right}/${s.right + s.wrong} correct`,
+    total: s.results.length,
+    masteredCount: s.results.filter(r => mistakes.find(m => m.id === r.id)?.mastered).length,
+  })).sort((a, b) => a.date - b.date);
+  list.forEach((s, i) => { s.number = i + 1; });
+  return list.sort((a, b) => b.date - a.date); // newest first
+}
+
+function renderReviseSessionRows() {
+  const history = computeReviseSessionHistory();
+  if (!history.length) {
+    return `<tr><td colspan="4" style="padding:1.5rem; text-align:center; color:var(--muted-foreground);">No revise sessions completed yet.</td></tr>`;
+  }
+  return history.map(s => {
+    const name = `Session ${s.number} — ${s.name}`;
+    const pct = s.total ? Math.round((s.masteredCount / s.total) * 100) : 0;
+    return `
+      <tr class="test-history-row" onclick="openHistoricalSessionReview('${escJsStr(s.id)}')" tabindex="0">
+        <td class="test-history-sr" data-label="Sr No.">${s.number}</td>
+        <td class="test-history-name" data-label="Session">${name}</td>
+        <td class="test-history-focus" data-label="Score">${s.scoreLabel}</td>
+        <td data-label="Mastered">
+          <div class="test-history-result" title="${s.masteredCount} of ${s.total} mistakes from this session are now mastered">
+            <div class="test-result-bar"><div class="test-result-fill" style="width:${pct}%"></div></div>
+            <span class="label-mono test-result-count">${s.masteredCount}/${s.total}</span>
           </div>
         </td>
       </tr>`;
@@ -6229,33 +6289,59 @@ function renderPractice(el) {
 }
 
 function openSessionReview() {
+  // Right after finishing — build a record from the live state, same shape
+  // as a persisted one, so renderSessionReview() doesn't need to care which
+  // kind it's showing.
+  sessionReviewRecord = {
+    id: "live",
+    completedAt: Date.now(),
+    results: practiceSessionResults,
+    right: practiceScore.right,
+    wrong: practiceScore.wrong,
+  };
   reviewingSession = true;
   renderPreserveScroll();
 }
 
+// Opens a PAST completed session from Test History — the persisted record,
+// not whatever's currently live in practiceSessionResults (which by then
+// belongs to a different, possibly-still-in-progress session).
+function openHistoricalSessionReview(sessionId) {
+  const record = (settings.reviseSessions || []).find(s => s.id === sessionId);
+  if (!record) return;
+  sessionReviewRecord = record;
+  reviewingSession = true;
+  render();
+}
+
 function closeSessionReview() {
   reviewingSession = false;
+  sessionReviewRecord = null;
   renderPreserveScroll();
 }
 
-// Review screen for the session that JUST finished — distinct from a Test
-// History review (which looks back at a batch of originally-logged
-// mistakes). This shows exactly what happened in this practice run: each
-// card in the order it was answered, right/wrong per practiceSessionResults
-// (captured live during grading, not inferred from the mistake's current
-// state afterward — which could've since changed via sync or a later session).
+// Review screen for a completed revise session — distinct from a Test
+// History "logged batch" review (which looks back at originally-logged
+// mistakes). Works identically whether showing the session that JUST
+// finished or an old one picked from Test History, since both are read
+// from sessionReviewRecord in the same shape. Right/wrong per card comes
+// from the record's own results snapshot (captured live during grading at
+// the time), not inferred from the mistake's CURRENT state — which could've
+// changed since via sync or a later session.
 function renderSessionReview(el) {
-  const results = practiceSessionResults;
+  const record = sessionReviewRecord;
+  if (!record) { reviewingSession = false; renderPracticeSetup(el); return; }
+  const results = record.results;
   el.innerHTML = `
     <div class="space-y-6">
       <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:1.5rem;">
         <div>
           <button class="btn btn-ghost btn-sm" onclick="closeSessionReview()" style="margin-bottom:0.5rem;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            Back to results
+            Back
           </button>
           <h2 style="font-size:1.125rem; font-weight:600;">Reviewing this set</h2>
-          <p style="margin-top:0.125rem; font-size:0.8125rem; color:var(--muted-foreground);">${results.length} card${results.length === 1 ? "" : "s"} · ${practiceScore.right} right · ${practiceScore.wrong} wrong</p>
+          <p style="margin-top:0.125rem; font-size:0.8125rem; color:var(--muted-foreground);">${results.length} card${results.length === 1 ? "" : "s"} · ${record.right} right · ${record.wrong} wrong${record.id !== "live" ? ` · ${new Date(record.completedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</p>
         </div>
       </div>
 
@@ -6396,20 +6482,20 @@ function renderPracticeSetup(el) {
       </div>
 
       <div class="panel settings-panel">
-        <h2 class="settings-panel-title">Test History</h2>
-        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Every batch of mistakes logged in one go counts as a test. Click one to review it. "Mastered" is derived automatically from how you've actually done revising each one.</p>
+        <h2 class="settings-panel-title">Revise History</h2>
+        <p style="margin-top:0.25rem; font-size:0.875rem; color:var(--muted-foreground);">Every completed revise session shows up here. Click one to review exactly what happened. "Mastered" reflects how those cards stand right now.</p>
         <div class="test-history-scroll" style="margin-top:1.25rem;">
           <table class="test-history-table responsive-table">
             <thead>
               <tr>
                 <th style="width:3.5rem;">Sr No.</th>
-                <th>Test Name</th>
-                <th>Topic to Focus On</th>
+                <th>Session</th>
+                <th>Score</th>
                 <th style="width:8.5rem;">Mastered</th>
               </tr>
             </thead>
             <tbody>
-              ${renderTestHistoryRows()}
+              ${renderReviseSessionRows()}
             </tbody>
           </table>
         </div>
@@ -6434,14 +6520,29 @@ function difficultyIconSVG(level) {
 // Opened from a Test History row — a static, already-revealed look back at
 // everything logged in that batch, not a live graded session. Star/comment
 // still work the same as anywhere else in the app.
+let testReviewOriginTab = null; // so "Back" returns to wherever the row was actually clicked from
+
 function openTestReview(batchId) {
   testReviewBatchId = batchId;
-  renderPreserveScroll();
+  testReviewOriginTab = currentTab;
+  // Now callable from the Log tab too — the review screen only ever
+  // renders under the Practice tab's dispatch, so make sure we're actually
+  // on it, same pattern as drillLeeches().
+  currentTab = "practice";
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  const btn = document.querySelector('[data-tab="practice"]');
+  if (btn) btn.classList.add("active");
+  render();
 }
 
 function closeTestReview() {
   testReviewBatchId = null;
-  renderPreserveScroll();
+  if (testReviewOriginTab && testReviewOriginTab !== "practice") {
+    switchTab(testReviewOriginTab);
+  } else {
+    renderPreserveScroll();
+  }
+  testReviewOriginTab = null;
 }
 
 function renderTestReview(el) {
@@ -6820,7 +6921,29 @@ function nextCard() {
   practiceSkipped = false;
   practiceMultiSelected = new Set();
   practiceIndex++;
+  if (practiceIndex >= practiceDeck.length && practiceDeck.length > 0) recordCompletedSession();
   renderPreserveScroll();
+}
+
+// Persists a finished revise session so it shows up in Test History, not
+// just as a one-time "Review this test" button that vanishes the moment you
+// leave the results screen. Lives in settings (not a new Supabase table) so
+// it rides along with the existing settings sync automatically — capped so
+// it can't grow unbounded.
+const MAX_STORED_REVISE_SESSIONS = 50;
+function recordCompletedSession() {
+  if (!practiceSessionResults.length) return;
+  const subjects = [...new Set(practiceDeck.map(m => m.subject).filter(Boolean))];
+  const record = {
+    id: uid(),
+    completedAt: Date.now(),
+    results: practiceSessionResults.map(r => ({ ...r })), // snapshot — not a live reference
+    right: practiceScore.right,
+    wrong: practiceScore.wrong,
+    subjects,
+  };
+  settings.reviseSessions = [record, ...(settings.reviseSessions || [])].slice(0, MAX_STORED_REVISE_SESSIONS);
+  save();
 }
 
 // ===== INIT =====
