@@ -99,6 +99,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   --sloppy-soft: oklch(0.945 0.035 30);
   --blur: oklch(0.5 0.02 265);
   --blur-soft: oklch(0.935 0.007 265);
+  --gap: oklch(0.48 0.15 310);
+  --gap-soft: oklch(0.94 0.035 310);
   --good: oklch(0.5 0.11 155);
   --good-soft: oklch(0.94 0.045 155);
   --heat-1: oklch(0.88 0.09 155);
@@ -152,6 +154,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   --sloppy-soft: oklch(0.29 0.06 30);
   --blur: oklch(0.68 0.015 265);
   --blur-soft: oklch(0.27 0.01 265);
+  --gap: oklch(0.74 0.13 310);
+  --gap-soft: oklch(0.29 0.06 310);
   --good: oklch(0.7 0.13 155);
   --good-soft: oklch(0.27 0.06 155);
   --heat-1: oklch(0.28 0.05 155);
@@ -932,7 +936,7 @@ h1, h2, h3 {
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
-@media (min-width: 640px) { .cat-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 640px) { .cat-grid { grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); } }
 .cat-tile {
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -1945,6 +1949,9 @@ select.toolbar-select:focus { border-color: var(--ring); }
 .blur-text { color: var(--blur); }
 .blur-bg { background: var(--blur-soft); }
 .blur-dot { background: var(--blur); }
+.gap-text { color: var(--gap); }
+.gap-bg { background: var(--gap-soft); }
+.gap-dot { background: var(--gap); }
 
 /* ===== FULL-SCREEN AUTH GATE ===== */
 .auth-gate {
@@ -2718,12 +2725,13 @@ img, svg, canvas, table { max-width: 100%; }
 <script src="config.js"></script>
 <script>
 // ===== DATA & STATE =====
-const CATEGORIES = ["Stretch", "A-ha", "Sloppy", "Blur"];
+const CATEGORIES = ["Stretch", "A-ha", "Sloppy", "Blur", "Not Covered"];
 const CATEGORY_META = {
   "Stretch": { blurb: "Hard on purpose", text: "stretch-text", bg: "stretch-bg", dot: "stretch-dot" },
   "A-ha": { blurb: "It finally clicked", text: "aha-text", bg: "aha-bg", dot: "aha-dot" },
   "Sloppy": { blurb: "Careless slip", text: "sloppy-text", bg: "sloppy-bg", dot: "sloppy-dot" },
   "Blur": { blurb: "Couldn't separate distractors", text: "blur-text", bg: "blur-bg", dot: "blur-dot" },
+  "Not Covered": { blurb: "Haven't studied this yet", text: "gap-text", bg: "gap-bg", dot: "gap-dot" },
 };
 
 const DAY_MS = 86400000;
@@ -3195,12 +3203,12 @@ OUTPUT: For each mistake, produce a Markdown block with exactly these fields:
 ## Mistake Statement: [optional - the user's own reflection]
 ## Golden Fact: [one short, standalone, memorable fact/rule that would have prevented this mistake — phrased positively, like a nugget worth remembering, not a callout of the error]
 ## Tags: [Subject > Chapter > Topic]
-## Category: [Stretch | A-ha | Sloppy | Blur]
+## Category: [Stretch | A-ha | Sloppy | Blur | Not Covered]
 
 RULES
 1. Subject: broad discipline (e.g. Pathology, Physics). Infer from context.
 2. Question: exact text.
-3. Wrong Answer: the option the user selected — marked with a circle, highlight, or underline in the screenshot, in one of four colors (see Category rule below for what each color means).
+3. Wrong Answer: the option the user selected — marked with a circle, highlight, or underline in the screenshot, in one of five colors (see Category rule below for what each color means).
 4. Correct Answer: the option marked correct.
 5. Explanation is compulsory - short and clear.
 6. Mistake Statement only if the user wrote a note.
@@ -3211,6 +3219,7 @@ RULES
    - Yellow = A-ha (the concept just clicked, seeing it fresh)
    - Red = Sloppy (careless — knew it, slipped anyway)
    - Grey = Blur (couldn't separate the distractors)
+   - Purple = Not Covered (haven't studied this material yet — not a slip or a mix-up, a genuine gap)
    Only fall back to inferring from the question's content if no annotation color is visible at all. Default to Blur if genuinely undeterminable.
 
 If a field is not visible, leave it blank. Do not invent data.
@@ -3680,7 +3689,9 @@ function initCloudAuth() {
 
 // ===== FSRS-LITE CONSTANTS =====
 // Rule 6: conceptual gaps (A-ha) start hotter than careless slips (Sloppy).
-const CATEGORY_BASE_INTENSITY = { "Sloppy": 1, "Blur": 1.5, "Stretch": 1.5, "A-ha": 2 };
+// Not Covered sits highest of all — it's not a slip or a mixed-up distractor,
+// it's a genuine blank: material you haven't studied yet at all.
+const CATEGORY_BASE_INTENSITY = { "Sloppy": 1, "Blur": 1.5, "Stretch": 1.5, "A-ha": 2, "Not Covered": 2.25 };
 const INTENSITY_CAP = 5;              // rule 7: max bump stacked on top of base
 const WRONG_BUMP = 1;                 // rule 1
 const REPEAT_WRONG_BUMP = 2;          // rule 3 (replaces the rule-1 bump, not additive)
