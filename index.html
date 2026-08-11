@@ -473,6 +473,25 @@ h1, h2, h3 {
   gap: 0.75rem;
   margin-top: 1.5rem;
 }
+.hero-category-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.hero-category-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hero-category-legend-blurb {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .hero-category-legend-blurb { display: none; }
+}
 .goal-input {
   width: 4rem;
   border-radius: var(--radius);
@@ -3163,7 +3182,7 @@ function renderFolderPickerTree() {
 
 const AI_PROMPT = `You are an expert assistant that extracts MCQ mistake details from screenshots of practice tests.
 
-INPUT: One or more screenshots containing MCQ questions, the user's selected (wrong) answer, the correct answer, and optionally any annotations.
+INPUT: One or more screenshots containing MCQ questions, the user's selected (wrong) answer, the correct answer, and optionally color-coded annotations marking the wrong answer.
 
 OUTPUT: For each mistake, produce a Markdown block with exactly these fields:
 
@@ -3181,13 +3200,18 @@ OUTPUT: For each mistake, produce a Markdown block with exactly these fields:
 RULES
 1. Subject: broad discipline (e.g. Pathology, Physics). Infer from context.
 2. Question: exact text.
-3. Wrong Answer: the option the user selected (marks, circles, underlines).
+3. Wrong Answer: the option the user selected — marked with a circle, highlight, or underline in the screenshot, in one of four colors (see Category rule below for what each color means).
 4. Correct Answer: the option marked correct.
 5. Explanation is compulsory - short and clear.
 6. Mistake Statement only if the user wrote a note.
 6b. Golden Fact: always produce one. Keep it under 20 words, phrased as a standalone fact ("Metoprolol is beta-1 selective — safe in reactive airway disease"), not as commentary on the mistake.
 7. Tags must use "Subject > Chapter > Topic".
-8. Category: Stretch (deliberately hard), A-ha (concept clicked), Sloppy (careless), Blur (fuzzy distractors). Default to Blur.
+8. Category: read directly off the annotation color marking the wrong answer — this is a deliberate color code, not a guess:
+   - Blue = Stretch (deliberately hard, hit your limit on purpose)
+   - Yellow = A-ha (the concept just clicked, seeing it fresh)
+   - Red = Sloppy (careless — knew it, slipped anyway)
+   - Grey = Blur (couldn't separate the distractors)
+   Only fall back to inferring from the question's content if no annotation color is visible at all. Default to Blur if genuinely undeterminable.
 
 If a field is not visible, leave it blank. Do not invent data.
 Separate multiple mistakes with ---
@@ -5014,6 +5038,14 @@ function renderDashboard(el, stats) {
           <span class="label-mono">Week in progress</span>
           <h2 style="margin-top:0.5rem; font-family:var(--font-display); font-size:1.875rem; line-height:1.2;">${quotaText}</h2>
           <p style="margin-top:0.75rem; max-width:28rem; font-size:0.875rem; color:var(--muted-foreground);">Mistex turns every wrong answer into a tracked, categorised, re-testable object. Log it once, practice it until it stops being a weakness.</p>
+          <div class="hero-category-legend">
+            ${CATEGORIES.map(c => `
+              <div class="hero-category-legend-item">
+                ${categoryTagHTML(c)}
+                <span class="hero-category-legend-blurb">${CATEGORY_META[c].blurb}</span>
+              </div>
+            `).join("")}
+          </div>
           <div class="hero-cta-row">
             <button class="btn btn-primary" onclick="switchTab('practice')">Start revising</button>
             <div style="display:flex; align-items:center; gap:0.5rem;">
