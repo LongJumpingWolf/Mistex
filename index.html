@@ -1863,6 +1863,43 @@ select.toolbar-select:focus { border-color: var(--ring); }
 .option-item.disabled:hover { border-color: var(--border); background: oklch(0.945 0.007 260 / 0.4); color: var(--foreground); }
 .option-item.disabled.selected-wrong:hover { border-color: var(--sloppy); background: var(--sloppy-soft); color: var(--sloppy); }
 .option-item.disabled.selected-correct:hover { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+
+/* Multi-answer question support */
+.multi-select-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius);
+  background: var(--signal-soft);
+  color: var(--signal);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.multi-select-banner svg { flex-shrink: 0; }
+.option-item-multi {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.multi-select-checkbox {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 0.25rem;
+  border: 1.5px solid var(--border);
+  color: var(--paper);
+}
+.option-item-multi.selected-multi-active { border-color: var(--signal); background: var(--signal-soft); color: var(--signal); }
+.option-item-multi.selected-multi-active .multi-select-checkbox { background: var(--signal); border-color: var(--signal); }
+.option-item-multi.selected-correct .multi-select-checkbox,
+.option-item-multi.selected-wrong .multi-select-checkbox { border-color: currentColor; background: currentColor; }
 .reveal-section { margin-top: 2rem; }
 .reveal-answers {
   display: grid;
@@ -2980,6 +3017,7 @@ function startPracticeSession() {
   practiceSkipped = false;
   practiceSetupMode = false;
   practiceSessionResults = []; // { id, correct } per card, in order — for the post-session review
+  practiceMultiSelected = new Set();
   reviewingSession = false;
   savePracticeSetupPrefs();
   renderPreserveScroll();
@@ -3209,7 +3247,7 @@ RULES
 1. Subject: broad discipline (e.g. Pathology, Physics). Infer from context.
 2. Question: exact text.
 3. Wrong Answer: the option the user selected — marked with a circle, highlight, or underline in the screenshot, in one of five colors (see Category rule below for what each color means).
-4. Correct Answer: the option marked correct.
+4. Correct Answer: the option(s) marked correct. If more than one option is marked correct (a genuine multi-answer MCQ), list every correct letter separated by commas — e.g. "A, C" — not just the first one.
 5. Explanation is compulsory - short and clear.
 6. Mistake Statement only if the user wrote a note.
 6b. Golden Fact: always produce one. Keep it under 20 words, phrased as a standalone fact ("Metoprolol is beta-1 selective — safe in reactive airway disease"), not as commentary on the mistake.
@@ -3725,6 +3763,7 @@ let practiceLastCorrect = null; // Auto-detected result for the current card
 let practiceRepeatedMistake = false; // Whether the user repeated the exact same wrong answer
 let practiceSkipped = false; // True when the user hit Enter without picking an option — worse than a wrong pick
 let practiceSessionResults = []; // { id, correct } per card, in order — captured live, not inferred after the fact
+let practiceMultiSelected = new Set(); // indices of currently checked options, for multi-answer cards only
 let reviewingSession = false;    // showing the post-session review screen (distinct from a Test History review)
 
 // Practice setup screen — shown before a test starts, not just a size toggle
@@ -4074,6 +4113,8 @@ function handleKeyboard(e) {
 
   // 1-4 exist only to pick option A-D on an unanswered MCQ. Any other
   // context (already answered, no options, wrong tab) — they do nothing.
+  // On a multi-answer card, a number key toggles that option instead of
+  // immediately grading — Enter submits once at least one is checked.
   if (optionKeys.includes(e.key) && currentTab === 'practice') {
     const current = practiceDeck[practiceIndex];
     if (current && current.options && !practiceAnswered && !practiceRevealed) {
@@ -4081,7 +4122,8 @@ function handleKeyboard(e) {
       const opts = splitOptions(current);
       if (optIndex < opts.length) {
         e.preventDefault();
-        selectPracticeOption(optIndex);
+        if (isMultiAnswerQuestion(current)) toggleMultiSelectOption(optIndex);
+        else selectPracticeOption(optIndex);
         return;
       }
     }
@@ -4111,9 +4153,17 @@ function handleKeyboard(e) {
       if (!current) { /* nothing to do */ }
       else if (!practiceRevealed) {
         if (current.options) {
-          // MCQ with nothing picked yet: don't hand over the answer for free.
-          // Log it as a skip (worse than a wrong pick) and reveal the correct option.
-          if (!practiceAnswered) skipPracticeCard();
+          if (isMultiAnswerQuestion(current)) {
+            // At least one box checked: Enter submits, same as clicking the
+            // Submit button. Nothing checked: same "commit to nothing = skip"
+            // rule as single-answer cards.
+            if (practiceMultiSelected.size > 0) submitMultiSelectAnswer();
+            else if (!practiceAnswered) skipPracticeCard();
+          } else if (!practiceAnswered) {
+            // MCQ with nothing picked yet: don't hand over the answer for free.
+            // Log it as a skip (worse than a wrong pick) and reveal the correct option.
+            skipPracticeCard();
+          }
         } else {
           // Open-recall card: no options to pick, so Enter is the normal reveal.
           practiceRevealed = true;
@@ -4224,6 +4274,7 @@ function drillLeeches() {
   practiceRepeatedMistake = false;
   commentingId = null;
   practiceSkipped = false;
+  practiceMultiSelected = new Set();
   practiceSetupMode = false; // leeches drill straight into the deck, bypassing setup
   testReviewBatchId = null;
   currentTab = "practice";
@@ -6105,15 +6156,67 @@ function extractOptionLetter(s) {
   return m ? m[1].toUpperCase() : null;
 }
 
+// Same idea as extractOptionLetter, but for correctAnswer specifically —
+// people shorthand this as just a bare letter ("A", no punctuation) far
+// more often than they would an actual option, so it gets its own fallback
+// rather than requiring the stricter "letter immediately followed by ) or ."
+// pattern that real option text always has.
+function extractCorrectAnswerLetter(correctAnswer) {
+  const strict = extractOptionLetter(correctAnswer);
+  if (strict) return strict;
+  const trimmed = String(correctAnswer || "").trim();
+  return /^[A-Ea-e]$/.test(trimmed) ? trimmed.toUpperCase() : null;
+}
+
 function isOptionCorrect(optionText, correctAnswer) {
   const oLetter = extractOptionLetter(optionText);
-  const cLetter = extractOptionLetter(correctAnswer);
+  const cLetter = extractCorrectAnswerLetter(correctAnswer);
   if (oLetter && cLetter) return oLetter === cLetter;
 
   const o = String(optionText || "").trim().toLowerCase();
   const c = String(correctAnswer || "").trim().toLowerCase();
   if (!o || !c) return false;
   return o === c || o.includes(c) || c.includes(o);
+}
+
+// Some MCQs genuinely have more than one correct option (e.g. correctAnswer
+// logged as "A. Troponin I, C. CK-MB"). Splits it the same way splitOptions()
+// splits the options field itself, so the convention stays consistent.
+function splitCorrectAnswers(correctAnswer) {
+  return String(correctAnswer || "").split(/,\s*(?=[A-Ea-e][).\s])/).map(s => s.trim()).filter(Boolean);
+}
+
+function getCorrectAnswerLetters(m) {
+  const raw = String(m.correctAnswer || "").trim();
+  // Bare letter list — "A, C" / "A,C" / "A and C" / "A/C" — the whole field
+  // is nothing but letters and separators. This is the more natural way to
+  // actually log a multi-answer question by hand, so it needs its own check
+  // rather than only supporting the verbose "A. Full text, C. Full text" form.
+  if (/^[A-Ea-e](?:\s*(?:,|\/|&|and)\s*[A-Ea-e])+$/i.test(raw)) {
+    return [...raw.matchAll(/[A-Ea-e]/gi)].map(x => x[0].toUpperCase());
+  }
+  // Full option text repeated per answer, comma-separated — same convention
+  // splitOptions() already uses for the options field itself.
+  return splitCorrectAnswers(raw).map(extractOptionLetter).filter(Boolean);
+}
+
+// Only actually "multi-answer" if we can identify 2+ distinct correct
+// letters — a single free-text answer that happens to contain a comma
+// (no letter prefixes) won't false-positive into this path.
+function isMultiAnswerQuestion(m) {
+  return !!m.options && getCorrectAnswerLetters(m).length > 1;
+}
+
+// Used for highlighting in review screens (Test History review, session
+// review) where every correct option needs to show as correct, not just
+// whichever one isOptionCorrect() happens to match first.
+function isOptionAmongCorrect(optionText, m) {
+  const letters = getCorrectAnswerLetters(m);
+  if (letters.length) {
+    const l = extractOptionLetter(optionText);
+    return !!l && letters.includes(l);
+  }
+  return isOptionCorrect(optionText, m.correctAnswer);
 }
 
 // Dispatches the Revise tab to whichever of the three screens applies:
@@ -6180,8 +6283,8 @@ function renderSessionReview(el) {
             ${m.options ? `
               <div class="options-grid">
                 ${splitOptions(m).map(o => {
-                  const optCorrect = isOptionCorrect(o, m.correctAnswer);
-                  const wasChosenWrong = !r.correct && !optCorrect && m.wrongAnswer && isOptionCorrect(o, m.wrongAnswer);
+                  const optCorrect = isOptionAmongCorrect(o, m);
+                  const wasChosenWrong = !r.correct && !optCorrect && m.wrongAnswer && isOptionAmongCorrect(o, { ...m, correctAnswer: m.wrongAnswer });
                   let cls = "option-item disabled";
                   if (optCorrect) cls += " selected-correct";
                   else if (wasChosenWrong) cls += " selected-wrong";
@@ -6385,8 +6488,8 @@ function renderTestReview(el) {
             ${m.options ? `
               <div class="options-grid">
                 ${splitOptions(m).map(o => {
-                  const correct = isOptionCorrect(o, m.correctAnswer);
-                  const wasChosenWrong = !correct && m.wrongAnswer && isOptionCorrect(o, m.wrongAnswer);
+                  const correct = isOptionAmongCorrect(o, m);
+                  const wasChosenWrong = !correct && m.wrongAnswer && isOptionAmongCorrect(o, { ...m, correctAnswer: m.wrongAnswer });
                   let cls = "option-item disabled";
                   if (correct) cls += " selected-correct";
                   else if (wasChosenWrong) cls += " selected-wrong";
@@ -6493,7 +6596,35 @@ function renderPracticeDeck(el) {
                 <button class="btn btn-ghost btn-sm" onclick="closeCommentBox()">Done</button>
               </div>
             ` : ""}
-            ${current.options ? `
+            ${current.options ? (isMultiAnswerQuestion(current) ? `
+              <div class="multi-select-banner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Select all that apply — ${getCorrectAnswerLetters(current).length} correct answers
+              </div>
+              <div class="options-grid">
+                ${splitOptions(current).map((o, i) => {
+                  const isSelected = practiceMultiSelected.has(i);
+                  let cls = "option-item option-item-multi";
+                  if (practiceAnswered) {
+                    cls += " disabled";
+                    const correct = isOptionAmongCorrect(o, current);
+                    if (isSelected && !correct) cls += " selected-wrong";
+                    else if (correct) cls += " selected-correct";
+                  } else if (isSelected) {
+                    cls += " selected-multi-active";
+                  }
+                  return `<button class="${cls}" onclick="toggleMultiSelectOption(${i})" ${practiceAnswered ? "disabled" : ""}>
+                    <span class="multi-select-checkbox">${isSelected ? `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>` : ""}</span>
+                    ${o}
+                  </button>`;
+                }).join("")}
+              </div>
+              ${!practiceAnswered ? `
+                <button class="btn btn-primary" style="margin-top:1rem;" onclick="submitMultiSelectAnswer()" ${practiceMultiSelected.size === 0 ? "disabled" : ""}>
+                  Submit answer
+                </button>
+              ` : ""}
+            ` : `
               <div class="options-grid">
                 ${splitOptions(current).map((o, i) => {
                   const isSelected = practiceSelectedOption === i;
@@ -6509,7 +6640,7 @@ function renderPracticeDeck(el) {
                   </button>`;
                 }).join("")}
               </div>
-            ` : `
+            `) : `
               <div style="margin-top:1.5rem;">
                 <button class="btn btn-primary" onclick="practiceReveal()" ${practiceRevealed ? "disabled" : ""}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -6566,10 +6697,12 @@ function renderPracticeDeck(el) {
                   `}
                 </div>
               </div>
-            ` : `<span class="kbd-hint" style="margin-top:1rem; display:inline-block;">${current.options ? "Pick an option, or press Enter to skip" : "Press Enter"}</span>`}
+            ` : `<span class="kbd-hint" style="margin-top:1rem; display:inline-block;">${current.options ? (isMultiAnswerQuestion(current) ? "Check all that apply, then press Enter to submit" : "Pick an option, or press Enter to skip") : "Press Enter"}</span>`}
             <p style="margin-top:1.5rem; font-size:0.6875rem; color:var(--muted-foreground);">
               ${current.options && !practiceAnswered && !practiceRevealed
-                ? `<span class="kbd-hint">1-4</span> A-D · <span class="kbd-hint">Enter</span> Skip`
+                ? (isMultiAnswerQuestion(current)
+                    ? `<span class="kbd-hint">1-4</span> Toggle · <span class="kbd-hint">Enter</span> Submit`
+                    : `<span class="kbd-hint">1-4</span> A-D · <span class="kbd-hint">Enter</span> Skip`)
                 : `<span class="kbd-hint">1-4</span> A-D · <span class="kbd-hint">Enter</span> Next`}
             </p>
           </div>
@@ -6580,10 +6713,12 @@ function renderPracticeDeck(el) {
 }
 
 // Selecting an option IS the answer: correctness is auto-detected against correctAnswer.
+// Only used for single-answer cards — multi-answer cards use toggleMultiSelectOption/
+// submitMultiSelectAnswer instead, since picking one option can't finalize the answer.
 function selectPracticeOption(index) {
   if (practiceAnswered || practiceRevealed) return;
   const current = practiceDeck[practiceIndex];
-  if (!current) return;
+  if (!current || isMultiAnswerQuestion(current)) return;
   const options = splitOptions(current);
   const chosenText = (options[index] || "").trim();
   const correct = isOptionCorrect(chosenText, current.correctAnswer);
@@ -6594,6 +6729,44 @@ function selectPracticeOption(index) {
   practiceLastCorrect = correct;
   practiceSkipped = false;
   // Only surface "You said last time" when they repeated the exact same wrong pick.
+  practiceRepeatedMistake = !correct && !!previousWrong && chosenText.toLowerCase() === previousWrong;
+  gradeMistake(current.id, correct, correct ? undefined : chosenText);
+  practiceScore = { right: practiceScore.right + (correct ? 1 : 0), wrong: practiceScore.wrong + (correct ? 0 : 1) };
+  practiceSessionResults.push({ id: current.id, correct });
+  renderPreserveScroll();
+}
+
+// Checkbox-style toggle for multi-answer cards — doesn't grade anything by
+// itself, just tracks the current selection until Submit is pressed.
+function toggleMultiSelectOption(index) {
+  if (practiceAnswered || practiceRevealed) return;
+  if (practiceMultiSelected.has(index)) practiceMultiSelected.delete(index);
+  else practiceMultiSelected.add(index);
+  renderPreserveScroll();
+}
+
+// Correct means the exact same SET of letters — every correct option picked,
+// no incorrect ones included. Partial credit isn't a thing here; a multi-
+// answer question with only some of the right boxes checked is still wrong.
+function submitMultiSelectAnswer() {
+  if (practiceAnswered || practiceRevealed) return;
+  const current = practiceDeck[practiceIndex];
+  if (!current) return;
+  const options = splitOptions(current);
+  const selectedLetters = [...practiceMultiSelected]
+    .map(i => extractOptionLetter(options[i]))
+    .filter(Boolean)
+    .sort();
+  const correctLetters = getCorrectAnswerLetters(current).slice().sort();
+  const correct = selectedLetters.length === correctLetters.length &&
+    selectedLetters.every((l, i) => l === correctLetters[i]);
+  const chosenText = [...practiceMultiSelected].map(i => options[i]).join(", ");
+  const previousWrong = (current.wrongAnswer || "").trim().toLowerCase();
+
+  practiceAnswered = true;
+  practiceRevealed = true;
+  practiceLastCorrect = correct;
+  practiceSkipped = false;
   practiceRepeatedMistake = !correct && !!previousWrong && chosenText.toLowerCase() === previousWrong;
   gradeMistake(current.id, correct, correct ? undefined : chosenText);
   practiceScore = { right: practiceScore.right + (correct ? 1 : 0), wrong: practiceScore.wrong + (correct ? 0 : 1) };
@@ -6645,6 +6818,7 @@ function nextCard() {
   practiceRepeatedMistake = false;
   commentingId = null;
   practiceSkipped = false;
+  practiceMultiSelected = new Set();
   practiceIndex++;
   renderPreserveScroll();
 }
